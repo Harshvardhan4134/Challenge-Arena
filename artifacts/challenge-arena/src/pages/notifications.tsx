@@ -4,14 +4,13 @@ import { useListNotifications, useMarkNotificationRead, useMarkAllNotificationsR
 import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { Bell, BellOff, CheckCheck } from "lucide-react";
-import { cn } from "@/lib/utils";
 
-const TYPE_LABELS: Record<string, { label: string; color: string }> = {
-  player_joined: { label: "Player Joined", color: "text-green-400" },
-  team_almost_full: { label: "Team Almost Full", color: "text-amber-400" },
-  match_ready: { label: "Match Ready", color: "text-primary" },
-  match_starting: { label: "Match Starting", color: "text-primary" },
-  match_result: { label: "Match Result", color: "text-accent" },
+const TYPE_STYLE: Record<string, { label: string; cls: string }> = {
+  player_joined: { label: "PLAYER JOINED", cls: "tag-green" },
+  team_almost_full: { label: "ALMOST FULL", cls: "tag-orange" },
+  match_ready: { label: "MATCH READY", cls: "tag-black" },
+  match_starting: { label: "STARTING", cls: "tag-black" },
+  match_result: { label: "RESULT", cls: "tag-pink" },
 };
 
 export default function Notifications() {
@@ -26,71 +25,71 @@ export default function Notifications() {
   const items = notifications.data ?? [];
   const unread = items.filter(n => !n.isRead).length;
 
-  const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
-  const fadeIn = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
-
   return (
     <Layout>
       <div className="py-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-black flex items-center gap-2">
-              <Bell className="w-5 h-5 text-primary" />
-              Notifications
-            </h1>
-            {unread > 0 && (
-              <div className="text-xs text-muted-foreground mt-0.5">{unread} unread</div>
-            )}
+            <div className="tag-orange inline-block mb-1">INBOX</div>
+            <div className="display-font text-4xl flex items-center gap-2">
+              <Bell className="w-6 h-6" />
+              NOTIFICATIONS
+              {unread > 0 && <span className="tag-pink">{unread}</span>}
+            </div>
           </div>
           {unread > 0 && (
             <button
               onClick={() => markAll.mutate({})}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="btn-brutal flex items-center gap-1.5 px-3 py-2 bg-black text-[#FFE600] text-xs"
             >
-              <CheckCheck className="w-4 h-4" />
-              Mark all read
+              <CheckCheck className="w-3.5 h-3.5" />
+              MARK ALL READ
             </button>
           )}
         </div>
 
         {notifications.isLoading ? (
           <div className="space-y-2">
-            {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-lg border border-border bg-card animate-pulse" />)}
+            {[1, 2, 3].map(i => <div key={i} className="h-16 border-2 border-black bg-white animate-pulse" />)}
           </div>
         ) : items.length === 0 ? (
-          <div className="text-center py-16 border border-border rounded-lg bg-card">
-            <BellOff className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
-            <p className="text-muted-foreground text-sm">No notifications yet.</p>
-            <p className="text-muted-foreground/60 text-xs mt-1">Join a challenge to get started.</p>
+          <div className="card-brutal p-12 text-center bg-white">
+            <BellOff className="w-10 h-10 mx-auto mb-3 text-gray-400" />
+            <p className="font-black text-sm text-gray-600">NO NOTIFICATIONS YET.</p>
+            <p className="text-xs font-mono text-gray-400 mt-1">Join a challenge to get started.</p>
           </div>
         ) : (
-          <motion.div initial="hidden" animate="show" variants={stagger} className="space-y-2">
+          <motion.div
+            initial="hidden"
+            animate="show"
+            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.05 } } }}
+            className="space-y-2"
+          >
             {items.map(n => {
-              const typeInfo = TYPE_LABELS[n.type] || { label: n.type, color: "text-foreground" };
+              const typeInfo = TYPE_STYLE[n.type] || { label: n.type.toUpperCase(), cls: "tag-black" };
               return (
                 <motion.div
                   key={n.id}
-                  variants={fadeIn}
+                  variants={{ hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } }}
                   onClick={() => {
                     if (!n.isRead) markRead.mutate({ notificationId: n.id });
                     if (n.challengeId) navigate(`/challenges/${n.challengeId}`);
                   }}
-                  className={cn(
-                    "flex items-start gap-3 p-3.5 rounded-lg border cursor-pointer transition-all",
-                    !n.isRead
-                      ? "border-primary/25 bg-primary/5 hover:bg-primary/8"
-                      : "border-border bg-card hover:bg-card/80"
-                  )}
+                  className={`card-brutal-sm bg-white cursor-pointer overflow-hidden hover:shadow-[5px_5px_0_#000] transition-shadow ${!n.isRead ? "border-[#FF6B00]" : ""}`}
                 >
-                  <div className={cn("w-1.5 h-1.5 rounded-full mt-2 shrink-0", !n.isRead ? "bg-primary" : "bg-muted-foreground/30")} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm">{n.title}</span>
-                      <span className={cn("text-[10px] font-mono", typeInfo.color)}>{typeInfo.label}</span>
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{n.message}</div>
-                    <div className="text-[10px] text-muted-foreground/50 mt-1">
-                      {new Date(n.createdAt).toLocaleString()}
+                  {!n.isRead && <div className="h-1 bg-[#FF6B00]" />}
+                  <div className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-black text-sm">{n.title}</div>
+                        <div className="text-xs text-gray-600 mt-0.5">{n.message}</div>
+                        <div className="text-[10px] font-mono text-gray-400 mt-1">
+                          {new Date(n.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                      <div className="shrink-0 mt-0.5">
+                        <span className={typeInfo.cls}>{typeInfo.label}</span>
+                      </div>
                     </div>
                   </div>
                 </motion.div>

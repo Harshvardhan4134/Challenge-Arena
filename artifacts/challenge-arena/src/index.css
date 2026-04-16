@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Inter:wght@400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -67,135 +67,79 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* DARK CYBER THEME */
+/* BRUTALIST ARENA THEME */
 :root {
-  --button-outline: rgba(0,255,255, .15);
-  --badge-outline: rgba(0,255,255, .08);
   --opaque-button-border-intensity: -8;
-  --elevate-1: rgba(0,255,255, .04);
-  --elevate-2: rgba(0,255,255, .09);
 
-  --background: 220 20% 5%;
-  --foreground: 0 0% 95%;
-  --border: 220 15% 16%;
+  --background: 54 100% 50%;
+  --foreground: 0 0% 0%;
+  --border: 0 0% 0%;
 
-  --card: 220 18% 9%;
-  --card-foreground: 0 0% 92%;
-  --card-border: 220 15% 18%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --card-border: 0 0% 0%;
 
-  --sidebar: 220 20% 7%;
-  --sidebar-foreground: 0 0% 90%;
-  --sidebar-border: 220 15% 14%;
-  --sidebar-primary: 185 100% 50%;
-  --sidebar-primary-foreground: 220 20% 5%;
-  --sidebar-accent: 220 15% 13%;
-  --sidebar-accent-foreground: 0 0% 90%;
-  --sidebar-ring: 185 100% 50%;
+  --sidebar: 54 100% 44%;
+  --sidebar-foreground: 0 0% 0%;
+  --sidebar-border: 0 0% 0%;
+  --sidebar-primary: 26 100% 50%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 0 0% 0%;
+  --sidebar-accent-foreground: 54 100% 50%;
+  --sidebar-ring: 26 100% 50%;
 
-  --popover: 220 18% 9%;
-  --popover-foreground: 0 0% 92%;
-  --popover-border: 220 15% 18%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 0%;
+  --popover-border: 0 0% 0%;
 
-  --primary: 185 100% 50%;
-  --primary-foreground: 220 20% 5%;
+  --primary: 26 100% 50%;
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 220 15% 15%;
-  --secondary-foreground: 0 0% 85%;
+  --secondary: 0 0% 0%;
+  --secondary-foreground: 54 100% 50%;
 
-  --muted: 220 15% 13%;
-  --muted-foreground: 220 10% 55%;
+  --muted: 54 80% 85%;
+  --muted-foreground: 0 0% 25%;
 
-  --accent: 25 100% 55%;
-  --accent-foreground: 220 20% 5%;
+  --accent: 338 100% 52%;
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
+  --destructive: 0 84% 50%;
+  --destructive-foreground: 0 0% 100%;
 
-  --input: 220 15% 18%;
-  --ring: 185 100% 50%;
+  --input: 0 0% 90%;
+  --ring: 26 100% 50%;
 
-  --chart-1: 185 100% 50%;
-  --chart-2: 25 100% 55%;
-  --chart-3: 270 80% 60%;
-  --chart-4: 120 60% 50%;
-  --chart-5: 345 80% 60%;
+  --chart-1: 26 100% 50%;
+  --chart-2: 120 60% 35%;
+  --chart-3: 338 100% 52%;
+  --chart-4: 220 80% 55%;
+  --chart-5: 0 84% 50%;
 
-  --app-font-sans: 'Outfit', sans-serif;
+  --app-font-sans: 'Inter', sans-serif;
   --app-font-serif: Georgia, serif;
   --app-font-mono: 'Space Mono', monospace;
-  --radius: .5rem;
+  --radius: 0rem;
 
-  --shadow-2xs: 0 0 0 1px rgba(0,255,255,0.05);
-  --shadow-xs: 0 1px 2px rgba(0,255,255,0.07);
-  --shadow-sm: 0 2px 4px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,255,255,0.06);
-  --shadow: 0 4px 8px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,255,0.06);
-  --shadow-md: 0 8px 16px rgba(0,0,0,0.5), 0 0 12px rgba(0,255,255,0.08);
-  --shadow-lg: 0 12px 24px rgba(0,0,0,0.6), 0 0 20px rgba(0,255,255,0.1);
-  --shadow-xl: 0 20px 40px rgba(0,0,0,0.7), 0 0 30px rgba(0,255,255,0.12);
-  --shadow-2xl: 0 0 60px rgba(0,255,255,0.15);
+  --shadow-2xs: 2px 2px 0 #000;
+  --shadow-xs: 2px 2px 0 #000;
+  --shadow-sm: 3px 3px 0 #000;
+  --shadow: 4px 4px 0 #000;
+  --shadow-md: 4px 4px 0 #000;
+  --shadow-lg: 5px 5px 0 #000;
+  --shadow-xl: 6px 6px 0 #000;
+  --shadow-2xl: 8px 8px 0 #000;
 
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
-  --primary-border: hsl(from hsl(var(--primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --sidebar-accent-border: hsl(from hsl(var(--sidebar-accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --secondary-border: hsl(from hsl(var(--secondary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --muted-border: hsl(from hsl(var(--muted)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --accent-border: hsl(from hsl(var(--accent)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-  --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
-}
-
-.dark {
-  --button-outline: rgba(0,255,255, .15);
-  --badge-outline: rgba(0,255,255, .08);
-  --opaque-button-border-intensity: 9;
-  --elevate-1: rgba(0,255,255, .04);
-  --elevate-2: rgba(0,255,255, .09);
-
-  --background: 220 20% 5%;
-  --foreground: 0 0% 95%;
-  --border: 220 15% 16%;
-  --card: 220 18% 9%;
-  --card-foreground: 0 0% 92%;
-  --card-border: 220 15% 18%;
-  --sidebar: 220 20% 7%;
-  --sidebar-foreground: 0 0% 90%;
-  --sidebar-border: 220 15% 14%;
-  --sidebar-primary: 185 100% 50%;
-  --sidebar-primary-foreground: 220 20% 5%;
-  --sidebar-accent: 220 15% 13%;
-  --sidebar-accent-foreground: 0 0% 90%;
-  --sidebar-ring: 185 100% 50%;
-  --popover: 220 18% 9%;
-  --popover-foreground: 0 0% 92%;
-  --popover-border: 220 15% 18%;
-  --primary: 185 100% 50%;
-  --primary-foreground: 220 20% 5%;
-  --secondary: 220 15% 15%;
-  --secondary-foreground: 0 0% 85%;
-  --muted: 220 15% 13%;
-  --muted-foreground: 220 10% 55%;
-  --accent: 25 100% 55%;
-  --accent-foreground: 220 20% 5%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-  --input: 220 15% 18%;
-  --ring: 185 100% 50%;
-  --chart-1: 185 100% 50%;
-  --chart-2: 25 100% 55%;
-  --chart-3: 270 80% 60%;
-  --chart-4: 120 60% 50%;
-  --chart-5: 345 80% 60%;
-
-  --shadow-2xs: 0 0 0 1px rgba(0,255,255,0.05);
-  --shadow-xs: 0 1px 2px rgba(0,255,255,0.07);
-  --shadow-sm: 0 2px 4px rgba(0,0,0,0.4), 0 0 0 1px rgba(0,255,255,0.06);
-  --shadow: 0 4px 8px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,255,255,0.06);
-  --shadow-md: 0 8px 16px rgba(0,0,0,0.5), 0 0 12px rgba(0,255,255,0.08);
-  --shadow-lg: 0 12px 24px rgba(0,0,0,0.6), 0 0 20px rgba(0,255,255,0.1);
-  --shadow-xl: 0 20px 40px rgba(0,0,0,0.7), 0 0 30px rgba(0,255,255,0.12);
-  --shadow-2xl: 0 0 60px rgba(0,255,255,0.15);
+  --primary-border: hsl(26 100% 40%);
+  --sidebar-primary-border: hsl(26 100% 40%);
+  --sidebar-accent-border: hsl(0 0% 20%);
+  --secondary-border: hsl(0 0% 20%);
+  --muted-border: hsl(54 60% 70%);
+  --accent-border: hsl(338 100% 42%);
+  --destructive-border: hsl(0 84% 40%);
 }
 
 @layer base {
@@ -212,119 +156,97 @@
   }
 }
 
-/* Cyber glow effects */
-.glow-cyan {
-  box-shadow: 0 0 20px rgba(0,255,255,0.3), 0 0 40px rgba(0,255,255,0.1);
+/* Brutalist utility classes */
+.card-brutal {
+  border: 3px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  background: #fff;
 }
 
-.glow-orange {
-  box-shadow: 0 0 20px rgba(255,140,0,0.3), 0 0 40px rgba(255,140,0,0.1);
+.card-brutal-sm {
+  border: 2px solid #000;
+  box-shadow: 3px 3px 0 #000;
+  background: #fff;
 }
 
-.text-glow-cyan {
-  text-shadow: 0 0 10px rgba(0,255,255,0.7), 0 0 20px rgba(0,255,255,0.3);
+.btn-brutal {
+  border: 3px solid #000;
+  box-shadow: 4px 4px 0 #000;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: all 0.1s;
 }
 
-.text-glow-orange {
-  text-shadow: 0 0 10px rgba(255,140,0,0.7), 0 0 20px rgba(255,140,0,0.3);
+.btn-brutal:hover {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #000;
 }
 
-.cyber-border {
-  border: 1px solid rgba(0,255,255,0.2);
-  position: relative;
+.btn-brutal:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0px 0px 0 #000;
 }
 
-.cyber-border::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  border: 1px solid rgba(0,255,255,0.05);
-  pointer-events: none;
+.display-font {
+  font-family: 'Bebas Neue', sans-serif;
+  letter-spacing: 0.04em;
 }
 
-/* Scan line effect */
-.scanline::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,255,255,0.01) 2px,
-    rgba(0,255,255,0.01) 4px
-  );
-  pointer-events: none;
-  z-index: 1;
+.tag-orange {
+  background: #FF6B00;
+  color: #fff;
+  border: 2px solid #000;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.tag-black {
+  background: #000;
+  color: #FFE600;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.tag-green {
+  background: #00854B;
+  color: #fff;
+  border: 2px solid #000;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.tag-pink {
+  background: #FF1E56;
+  color: #fff;
+  border: 2px solid #000;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  text-transform: uppercase;
+}
+
+.section-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #FF6B00;
 }
 
 @layer utilities {
   input[type="search"]::-webkit-search-cancel-button {
     @apply hidden;
-  }
-
-  [contenteditable][data-placeholder]:empty::before {
-    content: attr(data-placeholder);
-    color: hsl(var(--muted-foreground));
-    pointer-events: none;
-  }
-
-  .no-default-hover-elevate {}
-  .no-default-active-elevate {}
-
-  .toggle-elevate::before,
-  .toggle-elevate-2::before {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    inset: 0px;
-    border-radius: inherit;
-    z-index: -1;
-  }
-
-  .toggle-elevate.toggle-elevated::before {
-    background-color: var(--elevate-2);
-  }
-
-  .border.toggle-elevate::before {
-    inset: -1px;
-  }
-
-  .hover-elevate:not(.no-default-hover-elevate),
-  .active-elevate:not(.no-default-active-elevate),
-  .hover-elevate-2:not(.no-default-hover-elevate),
-  .active-elevate-2:not(.no-default-active-elevate) {
-    position: relative;
-    z-index: 0;
-  }
-
-  .hover-elevate:not(.no-default-hover-elevate)::after,
-  .active-elevate:not(.no-default-active-elevate)::after,
-  .hover-elevate-2:not(.no-default-hover-elevate)::after,
-  .active-elevate-2:not(.no-default-active-elevate)::after {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    inset: 0px;
-    border-radius: inherit;
-    z-index: 999;
-  }
-
-  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
-  .active-elevate:active:not(.no-default-active-elevate)::after {
-    background-color: var(--elevate-1);
-  }
-
-  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
-  .active-elevate-2:active:not(.no-default-active-elevate)::after {
-    background-color: var(--elevate-2);
-  }
-
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
-  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
-  .border.hover-elevate:not(.no-hover-interaction-elevate)::after {
-    inset: -1px;
   }
 }

@@ -1,217 +1,191 @@
 import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useGetStatsOverview } from "@workspace/api-client-react";
-import { Shield, Zap, Users, Trophy, Target, Clock, ChevronRight, Swords } from "lucide-react";
+import { Swords, Zap, Users, Trophy } from "lucide-react";
 
 export default function Landing() {
   const [, navigate] = useLocation();
   const stats = useGetStatsOverview();
 
-  const fadeUp = {
-    hidden: { opacity: 0, y: 30 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } },
-  };
-
-  const stagger = {
-    hidden: {},
-    show: { transition: { staggerChildren: 0.1 } },
-  };
-
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+    <div className="min-h-screen bg-[#FFE600] text-black overflow-x-hidden">
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
+      <nav className="border-b-4 border-black bg-black sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Swords className="w-5 h-5 text-primary" />
-            <span className="font-mono font-bold text-primary tracking-wider text-sm">CHALLENGE ARENA</span>
+            <Swords className="w-5 h-5 text-[#FFE600]" />
+            <span className="display-font text-[#FFE600] text-2xl tracking-widest">CHALLENGE ARENA</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0">
             <button
               onClick={() => navigate("/login")}
-              className="px-4 py-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="px-4 py-2 text-sm font-black text-[#FFE600] hover:bg-white/10 transition-colors font-mono tracking-wider"
             >
-              Login
+              LOGIN
             </button>
             <button
               onClick={() => navigate("/register")}
-              className="px-4 py-1.5 text-sm bg-primary text-primary-foreground rounded font-semibold hover:opacity-90 transition-opacity"
+              className="btn-brutal px-4 py-2 text-sm bg-[#FFE600] text-black"
             >
-              Get Started
+              GET STARTED
             </button>
           </div>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="relative min-h-screen flex items-center justify-center pt-14 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(ellipse at 50% 0%, rgba(0,255,255,0.08) 0%, transparent 70%)`,
-        }} />
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full bg-primary/5 blur-[100px] pointer-events-none" />
+      <section className="py-16 px-4 border-b-4 border-black">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center gap-2 mb-6"
+          >
+            <div className="tag-black flex items-center gap-1.5">
+              <div className="w-2 h-2 bg-[#FF1E56] rounded-full animate-pulse" />
+              GARENA FREE FIRE — CUSTOM MATCH PLATFORM
+            </div>
+          </motion.div>
 
-        <div className="relative z-10 max-w-4xl mx-auto px-4 text-center">
-          <motion.div initial="hidden" animate="show" variants={stagger}>
-            <motion.div variants={fadeUp} className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-mono mb-6">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-              GARENA FREE FIRE
-            </motion.div>
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="display-font text-[80px] sm:text-[120px] leading-none text-black mb-2"
+          >
+            FIND.
+          </motion.h1>
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.08 }}
+            className="display-font text-[80px] sm:text-[120px] leading-none text-[#FF6B00] mb-2"
+            style={{ WebkitTextStroke: "3px #000" }}
+          >
+            CHALLENGE.
+          </motion.h1>
+          <motion.h1
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.16 }}
+            className="display-font text-[80px] sm:text-[120px] leading-none text-black mb-8"
+          >
+            DOMINATE.
+          </motion.h1>
 
-            <motion.h1 variants={fadeUp} className="text-5xl sm:text-7xl font-black tracking-tight mb-4 leading-none">
-              <span className="block text-foreground">FIND.</span>
-              <span className="block text-primary text-glow-cyan">CHALLENGE.</span>
-              <span className="block text-foreground">DOMINATE.</span>
-            </motion.h1>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+            className="text-lg font-bold max-w-xl mb-8"
+          >
+            Create custom Free Fire matches instantly. No Discord chaos. No waiting. Just you, your squad, and the battlefield.
+          </motion.p>
 
-            <motion.p variants={fadeUp} className="text-lg text-muted-foreground max-w-xl mx-auto mt-6 mb-8 leading-relaxed">
-              Create custom Free Fire matches instantly. No Discord chaos. No waiting. Just you, your squad, and the battlefield.
-            </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.35 }}
+            className="flex flex-col sm:flex-row gap-3 mb-12"
+          >
+            <button
+              onClick={() => navigate("/register")}
+              className="btn-brutal px-8 py-4 bg-[#FF6B00] text-white text-lg flex items-center gap-2 justify-center"
+            >
+              <Swords className="w-5 h-5" />
+              CREATE CHALLENGE
+            </button>
+            <button
+              onClick={() => navigate("/login")}
+              className="btn-brutal px-8 py-4 bg-black text-[#FFE600] text-lg flex items-center gap-2 justify-center"
+            >
+              BROWSE MATCHES
+            </button>
+          </motion.div>
 
-            <motion.div variants={fadeUp} className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={() => navigate("/register")}
-                className="group px-8 py-3.5 bg-primary text-primary-foreground font-bold rounded text-base hover:opacity-90 transition-all glow-cyan flex items-center gap-2 justify-center"
-              >
-                <Swords className="w-5 h-5" />
-                Create Challenge
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-              <button
-                onClick={() => navigate("/challenges")}
-                className="px-8 py-3.5 border border-border bg-secondary text-foreground font-bold rounded text-base hover:border-primary/40 hover:bg-secondary/80 transition-all flex items-center gap-2 justify-center"
-              >
-                <Target className="w-5 h-5 text-primary" />
-                Browse Matches
-              </button>
-            </motion.div>
-
-            {/* Live stats */}
-            <motion.div variants={fadeUp} className="mt-14 grid grid-cols-3 gap-4 max-w-lg mx-auto">
-              {[
-                { label: "Active Matches", value: stats.data?.activeChallenges ?? "—" },
-                { label: "Players Online", value: stats.data?.totalPlayers ?? "—" },
-                { label: "Matches Today", value: stats.data?.matchesToday ?? "—" },
-              ].map(({ label, value }) => (
-                <div key={label} className="border border-border/50 rounded bg-card/50 py-3 px-2">
-                  <div className="text-2xl font-black text-primary font-mono">{value}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">{label}</div>
-                </div>
-              ))}
-            </motion.div>
+          {/* Live stats */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+            className="grid grid-cols-3 gap-3 max-w-lg"
+          >
+            {[
+              { label: "ACTIVE MATCHES", value: stats.data?.activeChallenges ?? "—" },
+              { label: "PLAYERS", value: stats.data?.totalPlayers ?? "—" },
+              { label: "TODAY", value: stats.data?.matchesToday ?? "—" },
+            ].map(({ label, value }) => (
+              <div key={label} className="card-brutal p-3 text-center">
+                <div className="display-font text-4xl text-[#FF6B00]">{value}</div>
+                <div className="text-[9px] font-black font-mono tracking-widest mt-1">{label}</div>
+              </div>
+            ))}
           </motion.div>
         </div>
       </section>
 
       {/* How it works */}
-      <section className="py-20 border-t border-border/40">
-        <div className="max-w-5xl mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <div className="text-xs font-mono text-primary tracking-widest mb-2">HOW IT WORKS</div>
-            <h2 className="text-3xl font-black">From signup to showdown in minutes</h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="grid grid-cols-1 sm:grid-cols-3 gap-4"
-          >
+      <section className="py-16 px-4 border-b-4 border-black bg-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="tag-orange inline-block mb-4">HOW IT WORKS</div>
+          <h2 className="display-font text-5xl sm:text-6xl mb-10">FROM SIGNUP TO SHOWDOWN IN MINUTES</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { n: "01", icon: Users, title: "Create Your Profile", desc: "Sign up, enter your Free Fire UID and in-game name. Your competitive identity starts here." },
-              { n: "02", icon: Swords, title: "Create or Join", desc: "Set match rules — mode, time, restrictions. Or browse open challenges and jump straight in." },
-              { n: "03", icon: Trophy, title: "Compete & Rank", desc: "Play the match, submit the result. Build your win streak. Climb the weekly leaderboard." },
+              { n: "01", icon: Users, title: "CREATE YOUR PROFILE", desc: "Sign up, enter your Free Fire UID and in-game name. Your competitive identity starts here." },
+              { n: "02", icon: Swords, title: "CREATE OR JOIN", desc: "Set match rules — mode, time, restrictions. Or browse open challenges and jump straight in." },
+              { n: "03", icon: Trophy, title: "COMPETE & RANK", desc: "Play the match, submit the result. Build your win streak. Climb the weekly leaderboard." },
             ].map(({ n, icon: Icon, title, desc }) => (
-              <motion.div
-                key={n}
-                variants={fadeUp}
-                className="relative p-5 border border-border rounded-lg bg-card hover:border-primary/30 transition-colors group"
-              >
-                <div className="text-xs font-mono text-primary/40 mb-3">{n}</div>
-                <Icon className="w-8 h-8 text-primary mb-3 group-hover:scale-110 transition-transform" />
-                <h3 className="font-bold mb-2">{title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
-              </motion.div>
+              <div key={n} className="card-brutal p-5">
+                <div className="display-font text-5xl text-[#FF6B00] mb-3">{n}</div>
+                <Icon className="w-7 h-7 mb-3" />
+                <div className="font-black text-sm mb-2">{title}</div>
+                <p className="text-sm text-gray-600 leading-relaxed">{desc}</p>
+              </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Features */}
-      <section className="py-20 border-t border-border/40 bg-card/30">
-        <div className="max-w-5xl mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <div className="text-xs font-mono text-primary tracking-widest mb-2">FEATURES</div>
-            <h2 className="text-3xl font-black">Built for serious players</h2>
-          </motion.div>
-
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true }}
-            variants={stagger}
-            className="grid grid-cols-2 sm:grid-cols-3 gap-3"
-          >
+      <section className="py-16 px-4 border-b-4 border-black">
+        <div className="max-w-5xl mx-auto">
+          <div className="tag-black inline-block mb-4">FEATURES</div>
+          <h2 className="display-font text-5xl sm:text-6xl mb-10">BUILT FOR SERIOUS PLAYERS</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
-              { icon: Swords, label: "1v1 / 2v2 / 4v4 modes" },
-              { icon: Shield, label: "Custom rule presets" },
-              { icon: Clock, label: "Scheduled matchmaking" },
-              { icon: Zap, label: "Leader chat & room share" },
-              { icon: Trophy, label: "Weekly leaderboard" },
-              { icon: Target, label: "Match result system" },
-            ].map(({ icon: Icon, label }) => (
-              <motion.div
-                key={label}
-                variants={fadeUp}
-                className="flex items-center gap-3 p-4 border border-border/50 rounded bg-background hover:border-primary/30 hover:bg-primary/5 transition-all"
-              >
-                <Icon className="w-5 h-5 text-primary shrink-0" />
-                <span className="text-sm font-medium">{label}</span>
-              </motion.div>
+              { icon: Swords, label: "1v1 / 2v2 / 4v4 MODES", color: "bg-[#FF6B00]" },
+              { icon: Zap, label: "LEADER CHAT & ROOM SHARE", color: "bg-black" },
+              { icon: Trophy, label: "WEEKLY LEADERBOARD", color: "bg-[#00854B]" },
+              { icon: Users, label: "CUSTOM RULE PRESETS", color: "bg-[#FF1E56]" },
+              { icon: Swords, label: "MATCH RESULT SYSTEM", color: "bg-[#FF6B00]" },
+              { icon: Zap, label: "INSTANT NOTIFICATIONS", color: "bg-black" },
+            ].map(({ icon: Icon, label, color }) => (
+              <div key={label} className={`card-brutal p-4 ${color} text-white`}>
+                <Icon className="w-6 h-6 mb-2" />
+                <div className="font-black text-xs tracking-wide">{label}</div>
+              </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
       {/* CTA */}
-      <section className="py-24 border-t border-border/40 relative overflow-hidden">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `radial-gradient(ellipse at 50% 50%, rgba(0,255,255,0.06) 0%, transparent 70%)`,
-        }} />
-        <div className="relative max-w-2xl mx-auto px-4 text-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+      <section className="py-20 px-4 bg-black border-b-4 border-black">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="display-font text-6xl sm:text-8xl text-[#FFE600] mb-4">READY TO DROP?</div>
+          <p className="text-white font-bold mb-8">Join hundreds of Free Fire players already competing on Challenge Arena.</p>
+          <button
+            onClick={() => navigate("/register")}
+            className="btn-brutal px-12 py-5 bg-[#FFE600] text-black text-xl"
           >
-            <h2 className="text-4xl sm:text-5xl font-black mb-4">Ready to drop?</h2>
-            <p className="text-muted-foreground mb-8">Join hundreds of Free Fire players already competing on Challenge Arena.</p>
-            <button
-              onClick={() => navigate("/register")}
-              className="px-10 py-4 bg-primary text-primary-foreground font-black text-lg rounded glow-cyan hover:opacity-90 transition-opacity"
-            >
-              Start Now — It's Free
-            </button>
-          </motion.div>
+            START NOW — IT'S FREE
+          </button>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border/40 py-6 text-center">
-        <div className="flex items-center justify-center gap-2 text-muted-foreground text-xs font-mono">
-          <Swords className="w-3 h-3 text-primary" />
+      <footer className="border-t-4 border-black py-6 bg-[#FFE600] text-center">
+        <div className="display-font text-base tracking-widest text-black flex items-center justify-center gap-2">
+          <Swords className="w-4 h-4" />
           CHALLENGE ARENA — GARENA FREE FIRE MATCHMAKING
         </div>
       </footer>

@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useGetMe, useGetStatsOverview, useListChallenges, useListNotifications } from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
-import { Swords, Search, Plus, Bell, ChevronRight, Trophy, Shield } from "lucide-react";
+import { Swords, Plus, Bell, ChevronRight, Trophy } from "lucide-react";
 
 export default function Home() {
   const [, navigate] = useLocation();
@@ -14,103 +14,107 @@ export default function Home() {
   const user = me.data;
   const unreadNotifs = notifications.data?.filter(n => !n.isRead) ?? [];
 
-  const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.08 } } };
-  const fadeUp = { hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0 } };
-
   return (
     <Layout>
-      <motion.div initial="hidden" animate="show" variants={stagger} className="py-4 space-y-5">
+      <div className="py-4 space-y-4">
         {/* Greeting */}
-        <motion.div variants={fadeUp}>
-          <div className="text-xs font-mono text-muted-foreground">WELCOME BACK</div>
-          <h1 className="text-2xl font-black mt-0.5">
-            {user?.ign || user?.username || "Player"}
-          </h1>
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+          <div className="tag-black inline-block mb-2">WELCOME BACK</div>
+          <div className="display-font text-5xl text-black leading-none">
+            {user?.ign || user?.username || "PLAYER"}
+          </div>
           {user?.freefireUid && (
-            <div className="text-xs text-muted-foreground font-mono mt-0.5">UID: {user.freefireUid}</div>
+            <div className="text-xs font-mono font-bold mt-1 text-gray-700">UID: {user.freefireUid}</div>
           )}
         </motion.div>
 
         {/* Primary actions */}
-        <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => navigate("/challenges/create")}
-            className="group flex flex-col items-start p-4 rounded-lg border border-primary/40 bg-primary/10 hover:bg-primary/15 hover:border-primary/60 transition-all glow-cyan"
+            className="card-brutal p-4 flex flex-col items-start bg-[#FF6B00] text-white hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
           >
-            <Plus className="w-6 h-6 text-primary mb-2 group-hover:scale-110 transition-transform" />
-            <div className="font-bold text-sm">Create Challenge</div>
-            <div className="text-xs text-muted-foreground mt-0.5">Set rules & invite</div>
+            <Plus className="w-7 h-7 mb-2" />
+            <div className="font-black text-sm">CREATE CHALLENGE</div>
+            <div className="text-xs font-mono mt-0.5 text-white/70">SET RULES & INVITE</div>
           </button>
           <button
             onClick={() => navigate("/challenges")}
-            className="group flex flex-col items-start p-4 rounded-lg border border-border bg-card hover:border-border/80 hover:bg-card/80 transition-all"
+            className="card-brutal p-4 flex flex-col items-start bg-black text-[#FFE600] hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
           >
-            <Search className="w-6 h-6 text-accent mb-2 group-hover:scale-110 transition-transform" />
-            <div className="font-bold text-sm">Join Match</div>
-            <div className="text-xs text-muted-foreground mt-0.5">Browse open challenges</div>
+            <Swords className="w-7 h-7 mb-2" />
+            <div className="font-black text-sm">JOIN MATCH</div>
+            <div className="text-xs font-mono mt-0.5 text-[#FFE600]/70">BROWSE OPEN MATCHES</div>
           </button>
-        </motion.div>
+        </div>
 
         {/* Platform stats */}
         {stats.data && (
-          <motion.div variants={fadeUp} className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {[
-              { label: "Active", value: stats.data.activeChallenges },
-              { label: "Players", value: stats.data.totalPlayers },
-              { label: "Today", value: stats.data.matchesToday },
-            ].map(({ label, value }) => (
-              <div key={label} className="border border-border rounded-lg bg-card p-3 text-center">
-                <div className="text-xl font-black text-primary font-mono">{value}</div>
-                <div className="text-[10px] text-muted-foreground font-mono uppercase mt-0.5">{label}</div>
+              { label: "ACTIVE", value: stats.data.activeChallenges, bg: "bg-[#00854B] text-white" },
+              { label: "PLAYERS", value: stats.data.totalPlayers, bg: "bg-[#FF6B00] text-white" },
+              { label: "TODAY", value: stats.data.matchesToday, bg: "bg-[#FF1E56] text-white" },
+            ].map(({ label, value, bg }) => (
+              <div key={label} className={`card-brutal p-3 text-center ${bg}`}>
+                <div className="display-font text-4xl">{value}</div>
+                <div className="text-[9px] font-black font-mono tracking-widest mt-0.5">{label}</div>
               </div>
             ))}
-          </motion.div>
+          </div>
         )}
 
         {/* Notifications preview */}
         {unreadNotifs.length > 0 && (
-          <motion.div variants={fadeUp}>
+          <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-                <Bell className="w-3.5 h-3.5" />
-                NOTIFICATIONS
+              <div className="flex items-center gap-1.5">
+                <Bell className="w-4 h-4" />
+                <span className="font-black text-sm">ALERTS</span>
+                <span className="tag-pink">{unreadNotifs.length}</span>
               </div>
-              <button onClick={() => navigate("/notifications")} className="text-xs text-primary">View all</button>
+              <button onClick={() => navigate("/notifications")} className="text-xs font-black underline hover:text-[#FF6B00]">View all</button>
             </div>
             <div className="space-y-2">
               {unreadNotifs.slice(0, 3).map(n => (
                 <div
                   key={n.id}
                   onClick={() => navigate("/notifications")}
-                  className="flex items-start gap-3 p-3 rounded border border-primary/20 bg-primary/5 cursor-pointer hover:bg-primary/8 transition-colors"
+                  className="card-brutal-sm p-3 flex items-start gap-3 cursor-pointer bg-white hover:bg-[#FFE600]/50 transition-colors"
                 >
-                  <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                  <div className="w-2 h-2 bg-[#FF1E56] mt-1.5 shrink-0" />
                   <div>
-                    <div className="text-sm font-semibold">{n.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5">{n.message}</div>
+                    <div className="text-sm font-black">{n.title}</div>
+                    <div className="text-xs text-gray-600 mt-0.5">{n.message}</div>
                   </div>
                 </div>
               ))}
             </div>
-          </motion.div>
+          </div>
         )}
 
         {/* Recent challenges */}
-        <motion.div variants={fadeUp}>
+        <div>
           <div className="flex items-center justify-between mb-2">
-            <div className="text-xs font-mono text-muted-foreground">RECENT MATCHES</div>
-            <button onClick={() => navigate("/challenges")} className="text-xs text-primary flex items-center gap-0.5">
-              See all <ChevronRight className="w-3 h-3" />
+            <div className="font-black text-sm">RECENT MATCHES</div>
+            <button onClick={() => navigate("/challenges")} className="text-xs font-black flex items-center gap-0.5 underline hover:text-[#FF6B00]">
+              SEE ALL <ChevronRight className="w-3 h-3" />
             </button>
           </div>
           {challenges.isLoading ? (
             <div className="space-y-2">
-              {[1, 2, 3].map(i => <div key={i} className="h-16 rounded border border-border bg-card animate-pulse" />)}
+              {[1, 2, 3].map(i => <div key={i} className="h-16 border-2 border-black bg-white animate-pulse" />)}
             </div>
           ) : challenges.data?.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm border border-border rounded-lg bg-card">
-              <Swords className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              No active challenges yet. Create the first one!
+            <div className="card-brutal p-8 text-center">
+              <Swords className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+              <p className="font-bold text-sm text-gray-600">No active challenges yet.</p>
+              <button
+                onClick={() => navigate("/challenges/create")}
+                className="btn-brutal mt-3 px-5 py-2 bg-[#FF6B00] text-white text-xs"
+              >
+                CREATE FIRST ONE
+              </button>
             </div>
           ) : (
             <div className="space-y-2">
@@ -118,47 +122,45 @@ export default function Home() {
                 <button
                   key={c.id}
                   onClick={() => navigate(`/challenges/${c.id}`)}
-                  className="w-full flex items-center gap-3 p-3 rounded border border-border bg-card hover:border-primary/30 hover:bg-card/80 transition-all text-left"
+                  className="w-full card-brutal-sm overflow-hidden text-left hover:shadow-[5px_5px_0_#000] transition-shadow"
                 >
-                  <div className="flex-1">
-                    <div className="font-semibold text-sm">{c.title}</div>
-                    <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-                      <span className="font-mono text-primary">{c.mode}</span>
-                      <span>·</span>
-                      <span>{c.teamA?.players.length ?? 0}/{c.teamA?.maxSize ?? 1} players</span>
-                    </div>
+                  <div className="bg-[#FF6B00] px-3 py-1 flex items-center justify-between">
+                    <span className="text-white text-[10px] font-black font-mono tracking-wider">{c.mode}</span>
+                    <span className={`text-[10px] font-black font-mono ${
+                      c.status === "open" ? "text-[#FFE600]" :
+                      c.status === "full" ? "text-white" : "text-white/60"
+                    }`}>{c.status.toUpperCase().replace("_", " ")}</span>
                   </div>
-                  <div className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
-                    c.status === "open" ? "border-green-500/40 text-green-400 bg-green-500/10" :
-                    c.status === "full" ? "border-accent/40 text-accent bg-accent/10" :
-                    "border-border text-muted-foreground"
-                  }`}>
-                    {c.status.toUpperCase()}
+                  <div className="p-3 bg-white">
+                    <div className="font-black text-sm">{c.title}</div>
+                    <div className="text-xs text-gray-600 mt-0.5 font-mono">
+                      {c.teamA?.players.length ?? 0}/{c.teamA?.maxSize ?? 1} players · {new Date(c.scheduledAt).toLocaleDateString()}
+                    </div>
                   </div>
                 </button>
               ))}
             </div>
           )}
-        </motion.div>
+        </div>
 
         {/* Quick links */}
-        <motion.div variants={fadeUp} className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => navigate("/leaderboard")}
-            className="flex items-center gap-2 p-3 rounded border border-border bg-card hover:border-primary/30 transition-colors text-sm"
+            className="card-brutal-sm flex items-center gap-2 p-3 bg-white hover:bg-[#FFE600]/30 transition-colors"
           >
-            <Trophy className="w-4 h-4 text-accent" />
-            <span className="font-medium">Leaderboard</span>
+            <Trophy className="w-5 h-5 text-[#FF6B00]" />
+            <span className="font-black text-sm">LEADERBOARD</span>
           </button>
           <button
             onClick={() => navigate("/profile/me")}
-            className="flex items-center gap-2 p-3 rounded border border-border bg-card hover:border-primary/30 transition-colors text-sm"
+            className="card-brutal-sm flex items-center gap-2 p-3 bg-white hover:bg-[#FFE600]/30 transition-colors"
           >
-            <Shield className="w-4 h-4 text-primary" />
-            <span className="font-medium">My Stats</span>
+            <Swords className="w-5 h-5 text-[#FF6B00]" />
+            <span className="font-black text-sm">MY STATS</span>
           </button>
-        </motion.div>
-      </motion.div>
+        </div>
+      </div>
     </Layout>
   );
 }

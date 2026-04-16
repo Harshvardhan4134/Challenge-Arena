@@ -66,15 +66,17 @@ export default function Profile() {
   const u = user.data;
   const s = stats.data;
 
-  const OUTCOME_COLORS: Record<string, string> = {
-    win: "text-green-400",
-    loss: "text-destructive",
-    disputed: "text-muted-foreground",
+  const OUTCOME_STYLE: Record<string, { label: string; cls: string }> = {
+    win: { label: "WIN", cls: "bg-[#00854B] text-white" },
+    loss: { label: "LOSS", cls: "bg-[#FF1E56] text-white" },
+    disputed: { label: "??", cls: "bg-gray-400 text-white" },
   };
 
   if (user.isLoading) {
-    return <Layout><div className="py-8 text-center text-muted-foreground text-sm">Loading...</div></Layout>;
+    return <Layout><div className="py-8 text-center font-black text-gray-600">LOADING...</div></Layout>;
   }
+
+  const inputCls = "w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00] transition-colors placeholder:font-normal placeholder:text-gray-400";
 
   return (
     <Layout>
@@ -82,149 +84,139 @@ export default function Profile() {
         {/* Header */}
         <div className="flex items-center gap-3">
           {!isOwnProfile && (
-            <button onClick={() => navigate(-1)} className="text-muted-foreground hover:text-foreground">
+            <button onClick={() => navigate(-1 as any)} className="text-black hover:text-[#FF6B00]">
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
           <div className="flex-1">
-            <h1 className="text-xl font-black">{isOwnProfile ? "My Profile" : u?.username}</h1>
-            <div className="text-xs font-mono text-muted-foreground mt-0.5">
-              {isOwnProfile ? "YOUR STATS & INFO" : "PLAYER PROFILE"}
-            </div>
+            <div className="tag-orange inline-block mb-1">{isOwnProfile ? "YOUR STATS & INFO" : "PLAYER PROFILE"}</div>
+            <div className="display-font text-4xl leading-none">{isOwnProfile ? "MY PROFILE" : u?.username?.toUpperCase()}</div>
           </div>
           {isOwnProfile && !editing && (
-            <button onClick={startEdit} className="p-2 border border-border rounded text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all">
+            <button onClick={startEdit} className="btn-brutal p-2 bg-white text-black">
               <Edit2 className="w-4 h-4" />
             </button>
           )}
         </div>
 
         {/* Profile card */}
-        <div className="border border-border rounded-lg bg-card p-4 space-y-3">
-          <div className="flex items-start justify-between">
-            <div>
-              <div className="text-lg font-black">{u?.username}</div>
-              {u?.ign && <div className="text-sm text-primary font-mono">{u.ign}</div>}
-              {u?.freefireUid && <div className="text-xs text-muted-foreground font-mono mt-0.5 flex items-center gap-1"><Hash className="w-3 h-3" />{u.freefireUid}</div>}
-              {u?.gender && <div className="text-xs text-muted-foreground capitalize mt-0.5">{u.gender}</div>}
-            </div>
-            <div className="text-xs font-mono text-muted-foreground/50">
-              Joined {new Date(u?.createdAt ?? "").toLocaleDateString()}
-            </div>
+        <div className="card-brutal overflow-hidden">
+          <div className="bg-black px-5 py-3">
+            <div className="text-[#FFE600] font-black text-lg">{u?.username}</div>
+            {u?.ign && <div className="text-[#FF6B00] text-xs font-mono mt-0.5">{u.ign}</div>}
           </div>
-
-          {editing && isOwnProfile && (
-            <div className="border-t border-border pt-3 space-y-2">
-              <input
-                type="text"
-                value={form.freefireUid}
-                onChange={e => setForm(f => ({ ...f, freefireUid: e.target.value }))}
-                placeholder="Free Fire UID"
-                className="w-full px-3 py-2 bg-background border border-input rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <input
-                type="text"
-                value={form.ign}
-                onChange={e => setForm(f => ({ ...f, ign: e.target.value }))}
-                placeholder="In-Game Name (IGN)"
-                className="w-full px-3 py-2 bg-background border border-input rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-              <select
-                value={form.gender}
-                onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}
-                className="w-full px-3 py-2 bg-background border border-input rounded text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="">Prefer not to say</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-              <div className="flex gap-2">
-                <button onClick={handleSave} disabled={updateUser.isPending} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-primary text-primary-foreground rounded text-sm font-bold hover:opacity-90 disabled:opacity-60">
-                  <Save className="w-3.5 h-3.5" />
-                  {updateUser.isPending ? "Saving..." : "Save"}
-                </button>
-                <button onClick={() => setEditing(false)} className="flex items-center gap-1.5 py-2 px-4 border border-border rounded text-sm hover:bg-muted transition-colors">
-                  <X className="w-3.5 h-3.5" />
-                  Cancel
-                </button>
+          <div className="bg-white p-4">
+            {u?.freefireUid && (
+              <div className="flex items-center gap-1.5 text-xs font-mono text-gray-600 mb-1">
+                <Hash className="w-3 h-3" />
+                UID: {u.freefireUid}
               </div>
+            )}
+            {u?.gender && <div className="text-xs font-mono text-gray-500 capitalize">{u.gender}</div>}
+            <div className="text-[10px] font-mono text-gray-400 mt-2">
+              JOINED {new Date(u?.createdAt ?? "").toLocaleDateString()}
             </div>
-          )}
+
+            {editing && isOwnProfile && (
+              <div className="border-t-2 border-black mt-3 pt-3 space-y-2">
+                <input type="text" value={form.freefireUid} onChange={e => setForm(f => ({ ...f, freefireUid: e.target.value }))} placeholder="Free Fire UID" className={inputCls} />
+                <input type="text" value={form.ign} onChange={e => setForm(f => ({ ...f, ign: e.target.value }))} placeholder="In-Game Name (IGN)" className={inputCls} />
+                <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))} className={inputCls}>
+                  <option value="">Prefer not to say</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+                <div className="flex gap-2">
+                  <button onClick={handleSave} disabled={updateUser.isPending} className="btn-brutal flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#FF6B00] text-white text-xs disabled:opacity-60">
+                    <Save className="w-3.5 h-3.5" />
+                    {updateUser.isPending ? "SAVING..." : "SAVE"}
+                  </button>
+                  <button onClick={() => setEditing(false)} className="btn-brutal flex items-center gap-1.5 py-2 px-4 bg-white text-black text-xs">
+                    <X className="w-3.5 h-3.5" />
+                    CANCEL
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats */}
         {s && (
           <div>
-            <div className="text-xs font-mono text-muted-foreground mb-2">STATS</div>
+            <div className="section-label mb-2">STATS</div>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "Matches", value: s.matchesPlayed, icon: Target, color: "text-foreground" },
-                { label: "Wins", value: s.wins, icon: Trophy, color: "text-primary" },
-                { label: "Losses", value: s.losses, icon: null, color: "text-destructive" },
-                { label: "Win Streak", value: s.winStreak, icon: Flame, color: "text-accent" },
-              ].map(({ label, value, icon: Icon, color }) => (
-                <div key={label} className="border border-border rounded-lg bg-card p-3 flex items-center gap-2">
-                  {Icon && <Icon className={`w-4 h-4 ${color} shrink-0`} />}
+                { label: "MATCHES", value: s.matchesPlayed, icon: Target, bg: "bg-black text-[#FFE600]" },
+                { label: "WINS", value: s.wins, icon: Trophy, bg: "bg-[#FF6B00] text-white" },
+                { label: "LOSSES", value: s.losses, icon: null, bg: "bg-[#FF1E56] text-white" },
+                { label: "WIN STREAK", value: s.winStreak, icon: Flame, bg: "bg-[#00854B] text-white" },
+              ].map(({ label, value, icon: Icon, bg }) => (
+                <div key={label} className={`card-brutal-sm p-3 flex items-center gap-2 ${bg}`}>
+                  {Icon && <Icon className="w-5 h-5 shrink-0" />}
                   <div>
-                    <div className={`text-lg font-black font-mono ${color}`}>{value}</div>
-                    <div className="text-[10px] text-muted-foreground">{label}</div>
+                    <div className="display-font text-4xl leading-none">{value}</div>
+                    <div className="text-[9px] font-black font-mono tracking-wider mt-0.5 opacity-80">{label}</div>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-2 border border-border rounded-lg bg-card p-3">
-              <div className="text-xs text-muted-foreground">Weekly Wins</div>
-              <div className="text-2xl font-black text-primary font-mono">{s.weeklyWins}</div>
+            <div className="card-brutal-sm mt-2 p-3 bg-[#FFE600]">
+              <div className="section-label">WEEKLY WINS</div>
+              <div className="display-font text-5xl">{s.weeklyWins}</div>
             </div>
           </div>
         )}
 
         {/* Match History */}
         <div>
-          <div className="text-xs font-mono text-muted-foreground mb-2">MATCH HISTORY</div>
+          <div className="section-label mb-2">MATCH HISTORY</div>
           {history.isLoading ? (
             <div className="space-y-2">
-              {[1, 2, 3].map(i => <div key={i} className="h-14 rounded border border-border bg-card animate-pulse" />)}
+              {[1, 2, 3].map(i => <div key={i} className="h-14 border-2 border-black bg-white animate-pulse" />)}
             </div>
           ) : history.data?.length === 0 ? (
-            <div className="text-center py-8 border border-border rounded-lg bg-card text-muted-foreground text-sm">
-              No match history yet.
+            <div className="card-brutal p-8 text-center bg-white">
+              <p className="font-black text-sm text-gray-600">NO MATCH HISTORY YET.</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {history.data?.map(match => (
-                <button
-                  key={match.challengeId}
-                  onClick={() => navigate(`/challenges/${match.challengeId}`)}
-                  className="w-full flex items-center gap-3 p-3 rounded border border-border bg-card hover:border-primary/30 transition-all text-left"
-                >
-                  <div className={`text-xs font-mono font-black w-8 ${OUTCOME_COLORS[match.outcome]}`}>
-                    {match.outcome.toUpperCase().slice(0, 3)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate">{match.title}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {match.mode} {match.opponent && `· vs ${match.opponent}`}
+              {history.data?.map(match => {
+                const outcomeStyle = OUTCOME_STYLE[match.outcome] || OUTCOME_STYLE.disputed;
+                return (
+                  <button
+                    key={match.challengeId}
+                    onClick={() => navigate(`/challenges/${match.challengeId}`)}
+                    className="w-full card-brutal-sm overflow-hidden text-left hover:shadow-[4px_4px_0_#000] transition-shadow"
+                  >
+                    <div className="flex items-stretch">
+                      <div className={`${outcomeStyle.cls} w-14 flex items-center justify-center font-black font-mono text-xs shrink-0`} style={{ borderRight: "2px solid #000" }}>
+                        {outcomeStyle.label}
+                      </div>
+                      <div className="bg-white flex-1 px-3 py-2">
+                        <div className="font-black text-sm truncate">{match.title}</div>
+                        <div className="text-xs font-mono text-gray-500 mt-0.5">
+                          {match.mode} {match.opponent && `· vs ${match.opponent}`}
+                          <span className="ml-2">{new Date(match.playedAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-[10px] text-muted-foreground shrink-0">
-                    {new Date(match.playedAt).toLocaleDateString()}
-                  </div>
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Logout (own profile only) */}
+        {/* Logout */}
         {isOwnProfile && (
           <button
             onClick={() => logoutMutation.mutate({})}
-            className="w-full flex items-center justify-center gap-2 py-2.5 border border-destructive/40 text-destructive rounded hover:bg-destructive/10 transition-colors text-sm font-medium"
+            className="btn-brutal w-full flex items-center justify-center gap-2 py-3 bg-[#FF1E56] text-white text-sm"
           >
             <LogOut className="w-4 h-4" />
-            Log Out
+            LOG OUT
           </button>
         )}
       </motion.div>

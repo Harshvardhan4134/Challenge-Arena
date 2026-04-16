@@ -4,11 +4,11 @@ import { useListNotifications } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { path: "/home", icon: Home, label: "Home" },
-  { path: "/challenges", icon: Swords, label: "Matches" },
-  { path: "/leaderboard", icon: Trophy, label: "Ranks" },
-  { path: "/notifications", icon: Bell, label: "Alerts" },
-  { path: "/profile/me", icon: User, label: "Profile" },
+  { path: "/home", icon: Home, label: "HOME" },
+  { path: "/challenges", icon: Swords, label: "MATCHES" },
+  { path: "/leaderboard", icon: Trophy, label: "RANKS" },
+  { path: "/notifications", icon: Bell, label: "ALERTS" },
+  { path: "/profile/me", icon: User, label: "PROFILE" },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -18,26 +18,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/60 bg-background/85 backdrop-blur-md">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b-4 border-black bg-black">
         <div className="max-w-2xl mx-auto px-4 h-12 flex items-center justify-between">
           <button
             onClick={() => navigate("/home")}
-            className="flex items-center gap-1.5 text-primary font-mono font-bold text-xs tracking-widest"
+            className="display-font text-[#FFE600] text-xl tracking-widest flex items-center gap-2"
           >
             <Swords className="w-4 h-4" />
-            ARENA
+            CHALLENGE ARENA
           </button>
         </div>
       </header>
 
-      {/* Main content */}
-      <main className="flex-1 pt-12 pb-16 max-w-2xl mx-auto w-full px-4">
+      <main className="flex-1 pt-12 pb-16 max-w-2xl mx-auto w-full px-3">
         {children}
       </main>
 
-      {/* Bottom nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/60 bg-background/90 backdrop-blur-md">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t-4 border-black bg-[#FFE600]">
         <div className="max-w-2xl mx-auto grid grid-cols-5 h-14">
           {navItems.map(({ path, icon: Icon, label }) => {
             const [isActive] = useRoute(path === "/home" ? "/home" : path + "*");
@@ -46,22 +43,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 key={path}
                 onClick={() => navigate(path)}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 transition-colors relative",
-                  isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  "flex flex-col items-center justify-center gap-0.5 transition-colors relative border-r-2 border-black last:border-r-0",
+                  isActive ? "bg-black text-[#FFE600]" : "text-black hover:bg-black/10"
                 )}
               >
                 <div className="relative">
-                  <Icon className="w-5 h-5" />
-                  {label === "Alerts" && unread > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full flex items-center justify-center">
+                  <Icon className="w-4 h-4" />
+                  {label === "ALERTS" && unread > 0 && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF1E56] border border-black text-white text-[8px] font-black rounded-none flex items-center justify-center">
                       {unread > 9 ? "9+" : unread}
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] font-medium">{label}</span>
-                {isActive && (
-                  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-b" />
-                )}
+                <span className="text-[8px] font-black tracking-wider font-mono">{label}</span>
               </button>
             );
           })}
