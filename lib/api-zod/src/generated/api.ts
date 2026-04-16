@@ -28,6 +28,7 @@ export const RegisterBody = zod.object({
     .min(registerBodyUsernameMin)
     .max(registerBodyUsernameMax),
   password: zod.string().min(registerBodyPasswordMin),
+  email: zod.string().email().optional(),
   freefireUid: zod.string().optional(),
   ign: zod.string().optional(),
   gender: zod.enum(["male", "female", "other"]).nullish(),

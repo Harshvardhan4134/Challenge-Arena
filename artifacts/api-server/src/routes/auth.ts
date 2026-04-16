@@ -26,7 +26,7 @@ router.post("/register", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Validation error", message: parsed.error.message });
   }
-  const { username, password, freefireUid, ign, gender } = parsed.data;
+  const { username, password, email, freefireUid, ign, gender } = parsed.data;
 
   const existing = await db.select().from(usersTable).where(eq(usersTable.username, username)).limit(1);
   if (existing.length > 0) {
@@ -37,6 +37,7 @@ router.post("/register", async (req, res) => {
   const [user] = await db.insert(usersTable).values({
     username,
     passwordHash,
+    email: email ?? null,
     freefireUid: freefireUid ?? null,
     ign: ign ?? null,
     gender: (gender as "male" | "female" | "other" | undefined) ?? null,
