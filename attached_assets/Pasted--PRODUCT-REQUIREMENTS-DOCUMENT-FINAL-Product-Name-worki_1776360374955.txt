@@ -1,0 +1,236 @@
+📄 PRODUCT REQUIREMENTS DOCUMENT (FINAL)
+🧠 Product Name (working)
+
+Challenge Arena
+
+🎯 1. Vision
+
+Build a real-time challenge and matchmaking platform where players can create custom matches, form teams, compete, and build reputation.
+
+Focus:
+
+Fast matchmaking
+Custom rules
+Competitive identity
+🎮 2. Target Product (V1)
+
+Game:
+Garena Free Fire
+
+Platform:
+
+Web (mobile-first)
+🎯 3. Problem Statement
+
+Players struggle with:
+
+finding teammates quickly
+finding opponents instantly
+coordinating custom matches
+relying on messy WhatsApp/Discord groups
+💡 4. Core Value Proposition
+
+“Create or join custom Free Fire matches instantly — no chaos, no waiting.”
+
+🧩 5. Core User Flow
+🔁 Main Loop
+User signs up
+Creates or joins challenge
+Team fills
+Match played
+Result submitted
+Stats updated
+Repeat
+👤 6. User System
+Fields:
+Internal ID (system)
+Username (display)
+Free Fire UID (manual input)
+IGN (in-game name)
+Gender (optional)
+⚠️ UID Handling
+No dependency on external API
+Optional API autofill (fallback-safe)
+Manual entry always allowed
+🏠 7. Landing Page
+Style:
+Dark theme
+Cyber/futuristic (not heavy gradients)
+Sections:
+Hero
+“Find. Challenge. Dominate.”
+CTA
+Create Challenge
+Join Match
+How it works
+Features
+🏠 8. Home Screen
+
+Two main actions:
+
+⚔️ Create Challenge
+🔍 Join Challenge
+⚔️ 9. Create Challenge
+Fields:
+🎮 Mode
+1v1
+2v2
+4v4
+🕒 Time
+Date + Time
+🎯 Rules (preset toggles)
+Headshot only
+No gloo wall
+No revive
+No spray
+Sniper only
+Custom rule input
+👥 Team Setup
+Full team
+Need players (e.g. 2/4)
+🔍 10. Join Challenge
+Features:
+View active challenges
+Filters:
+Mode
+Time
+Slots
+Actions:
+Join team
+Challenge opponent
+👥 11. Team System
+Roles:
+👑 Team Leader
+Creates challenge
+Chats with opponent leader
+🧑‍🤝‍🧑 Players
+Join team
+Receive updates
+💬 12. Chat System
+Leader ↔ Leader
+Share:
+Room ID
+Password
+Leader → Team
+Share match details
+🔔 13. Notification System (Core Feature)
+🎯 Channels:
+🟢 In-App
+real-time updates
+🔵 Push Notifications
+
+Using:
+Firebase Cloud Messaging
+
+🟡 WhatsApp Bot (fallback)
+
+Using:
+Twilio
+
+📩 Email (secondary)
+
+Using:
+SendGrid
+
+🔁 Notification Logic
+Event	In-App	Push	WhatsApp	Email
+Player joined	✅	❌	❌	❌
+Team almost full	✅	✅	❌	❌
+Match ready	✅	✅	✅	❌
+Match starting	✅	✅	✅	❌
+Match result	✅	❌	❌	✅
+🎮 14. Match Execution
+Leader creates Free Fire room
+Shares Room ID + Password
+Players join
+🧾 15. Match Result System (CRITICAL)
+Flow:
+Match ends
+Both teams submit result
+If match:
+result confirmed
+If mismatch:
+mark as dispute
+Stored Data:
+match_id
+teams
+players
+winner
+time
+status
+⚠️ Dispute Handling (V1 Simple)
+No leaderboard update
+Optional screenshot upload
+📊 16. Player Stats
+Matches played
+Wins
+Losses
+Win streak
+🏆 17. Weekly Leaderboard
+Type:
+Player-based
+Logic:
+Count wins per week
+Reset weekly
+Rules:
+Minimum matches required
+Add-ons:
+“Top Player” badge
+Win streak highlight
+🔁 18. Retention Features
+Rematch button
+Match reminders
+Rival tracking (later)
+⚙️ 19. Tech Stack (Suggested)
+
+Frontend:
+
+React / Next.js
+
+Backend:
+
+Node.js
+
+Database:
+
+Supabase / Firebase
+
+Realtime:
+
+WebSockets
+⚠️ 20. Risks & Solutions
+1. No users
+
+👉 Start with small community
+
+2. No-shows
+
+👉 reminders + tracking
+
+3. Fake results
+
+👉 dual confirmation
+
+4. Notification spam
+
+👉 smart routing
+
+🚀 21. MVP Scope (STRICT)
+Include:
+Signup
+Create challenge
+Join challenge
+Team system
+Leader chat
+Match result
+Basic notifications
+Exclude:
+Payments
+Advanced stats
+AI features
+Complex UI
+📈 22. Success Metrics
+Challenges created/day
+Fill rate (%)
+Matches completed
+Repeat users

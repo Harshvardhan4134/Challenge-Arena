@@ -3,20 +3,38 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Challenge Arena API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: users
+    description: User management
+  - name: challenges
+    description: Challenge operations
+  - name: teams
+    description: Team operations
+  - name: matches
+    description: Match operations
+  - name: chat
+    description: Chat operations
+  - name: notifications
+    description: Notification operations
+  - name: leaderboard
+    description: Leaderboard operations
+  - name: stats
+    description: Statistics operations
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +42,490 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{userId}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /users/{userId}/update:
+    put:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user profile
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserBody"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /challenges:
+    get:
+      operationId: listChallenges
+      tags: [challenges]
+      summary: List active challenges
+      parameters:
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [1v1, 2v2, 4v4]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [open, full, in_progress, completed, cancelled]
+        - name: hasSlots
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: List of challenges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Challenge"
+
+    post:
+      operationId: createChallenge
+      tags: [challenges]
+      summary: Create a new challenge
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChallengeBody"
+      responses:
+        "201":
+          description: Challenge created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Challenge"
+
+  /challenges/{challengeId}:
+    get:
+      operationId: getChallenge
+      tags: [challenges]
+      summary: Get challenge by ID
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Challenge found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Challenge"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      operationId: deleteChallenge
+      tags: [challenges]
+      summary: Delete/cancel a challenge
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /challenges/{challengeId}/join:
+    post:
+      operationId: joinChallenge
+      tags: [challenges]
+      summary: Join a challenge team
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinChallengeBody"
+      responses:
+        "200":
+          description: Joined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Challenge"
+        "400":
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /challenges/{challengeId}/leave:
+    post:
+      operationId: leaveChallenge
+      tags: [challenges]
+      summary: Leave a challenge team
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Left
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /challenges/{challengeId}/result:
+    post:
+      operationId: submitResult
+      tags: [matches]
+      summary: Submit match result
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitResultBody"
+      responses:
+        "200":
+          description: Result submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchResult"
+
+  /challenges/{challengeId}/room:
+    post:
+      operationId: shareRoomDetails
+      tags: [matches]
+      summary: Share room ID and password (leader only)
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShareRoomBody"
+      responses:
+        "200":
+          description: Room details shared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /challenges/{challengeId}/messages:
+    get:
+      operationId: getChallengeMessages
+      tags: [chat]
+      summary: Get leader chat messages for a challenge
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+
+    post:
+      operationId: sendMessage
+      tags: [chat]
+      summary: Send a chat message (leader only)
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageBody"
+      responses:
+        "201":
+          description: Message sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: Get notifications for current user
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{notificationId}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark a notification as read
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: All marked as read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+
+  /leaderboard/weekly:
+    get:
+      operationId: getWeeklyLeaderboard
+      tags: [leaderboard]
+      summary: Get weekly leaderboard
+      responses:
+        "200":
+          description: Weekly leaderboard
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  /stats/overview:
+    get:
+      operationId: getStatsOverview
+      tags: [stats]
+      summary: Get platform overview stats (active challenges, players, matches today)
+      responses:
+        "200":
+          description: Platform overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsOverview"
+
+  /users/{userId}/stats:
+    get:
+      operationId: getUserStats
+      tags: [stats]
+      summary: Get player stats
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Player stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerStats"
+
+  /users/{userId}/history:
+    get:
+      operationId: getUserMatchHistory
+      tags: [stats]
+      summary: Get player match history
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Match history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MatchHistoryEntry"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +536,447 @@ components:
       required:
         - status
 
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+      required:
+        - error
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+      required:
+        - success
+
+    RegisterBody:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+        password:
+          type: string
+          minLength: 6
+        freefireUid:
+          type: string
+        ign:
+          type: string
+        gender:
+          type: string
+          enum: [male, female, other]
+          nullable: true
+      required:
+        - username
+        - password
+
+    LoginBody:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required:
+        - username
+        - password
+
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+      required:
+        - user
+        - token
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        freefireUid:
+          type: string
+          nullable: true
+        ign:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        stats:
+          $ref: "#/components/schemas/PlayerStats"
+          nullable: true
+      required:
+        - id
+        - username
+        - createdAt
+
+    UpdateUserBody:
+      type: object
+      properties:
+        freefireUid:
+          type: string
+        ign:
+          type: string
+        gender:
+          type: string
+          enum: [male, female, other]
+          nullable: true
+
+    Challenge:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        mode:
+          type: string
+          enum: [1v1, 2v2, 4v4]
+        scheduledAt:
+          type: string
+          format: date-time
+        rules:
+          type: array
+          items:
+            type: string
+        customRule:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [open, full, in_progress, completed, cancelled, disputed]
+        teamA:
+          $ref: "#/components/schemas/Team"
+        teamB:
+          $ref: "#/components/schemas/Team"
+          nullable: true
+        roomId:
+          type: string
+          nullable: true
+        roomPassword:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        creatorId:
+          type: string
+        winnerId:
+          type: string
+          nullable: true
+      required:
+        - id
+        - title
+        - mode
+        - scheduledAt
+        - rules
+        - status
+        - teamA
+        - createdAt
+        - creatorId
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        leaderId:
+          type: string
+        players:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMember"
+        maxSize:
+          type: integer
+      required:
+        - id
+        - name
+        - leaderId
+        - players
+        - maxSize
+
+    TeamMember:
+      type: object
+      properties:
+        userId:
+          type: string
+        username:
+          type: string
+        ign:
+          type: string
+          nullable: true
+        isLeader:
+          type: boolean
+        joinedAt:
+          type: string
+          format: date-time
+      required:
+        - userId
+        - username
+        - isLeader
+        - joinedAt
+
+    CreateChallengeBody:
+      type: object
+      properties:
+        title:
+          type: string
+        mode:
+          type: string
+          enum: [1v1, 2v2, 4v4]
+        scheduledAt:
+          type: string
+          format: date-time
+        rules:
+          type: array
+          items:
+            type: string
+        customRule:
+          type: string
+          nullable: true
+        teamName:
+          type: string
+      required:
+        - title
+        - mode
+        - scheduledAt
+        - rules
+        - teamName
+
+    JoinChallengeBody:
+      type: object
+      properties:
+        side:
+          type: string
+          enum: [teamA, teamB]
+      required:
+        - side
+
+    SubmitResultBody:
+      type: object
+      properties:
+        winningSide:
+          type: string
+          enum: [teamA, teamB]
+        screenshotUrl:
+          type: string
+          nullable: true
+      required:
+        - winningSide
+
+    ShareRoomBody:
+      type: object
+      properties:
+        roomId:
+          type: string
+        roomPassword:
+          type: string
+      required:
+        - roomId
+        - roomPassword
+
+    MatchResult:
+      type: object
+      properties:
+        id:
+          type: string
+        challengeId:
+          type: string
+        submittedBy:
+          type: string
+        winningSide:
+          type: string
+        status:
+          type: string
+          enum: [pending, confirmed, disputed]
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - challengeId
+        - submittedBy
+        - winningSide
+        - status
+        - createdAt
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+        challengeId:
+          type: string
+        senderId:
+          type: string
+        senderUsername:
+          type: string
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - challengeId
+        - senderId
+        - senderUsername
+        - content
+        - createdAt
+
+    SendMessageBody:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+        - content
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        type:
+          type: string
+          enum: [player_joined, team_almost_full, match_ready, match_starting, match_result]
+        title:
+          type: string
+        message:
+          type: string
+        isRead:
+          type: boolean
+        challengeId:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - type
+        - title
+        - message
+        - isRead
+        - createdAt
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        userId:
+          type: string
+        username:
+          type: string
+        ign:
+          type: string
+          nullable: true
+        wins:
+          type: integer
+        winStreak:
+          type: integer
+        matchesPlayed:
+          type: integer
+        badge:
+          type: string
+          nullable: true
+      required:
+        - rank
+        - userId
+        - username
+        - wins
+        - winStreak
+        - matchesPlayed
+
+    StatsOverview:
+      type: object
+      properties:
+        activeChallenges:
+          type: integer
+        totalPlayers:
+          type: integer
+        matchesToday:
+          type: integer
+        completedMatches:
+          type: integer
+        openSlots:
+          type: integer
+      required:
+        - activeChallenges
+        - totalPlayers
+        - matchesToday
+        - completedMatches
+        - openSlots
+
+    PlayerStats:
+      type: object
+      properties:
+        userId:
+          type: string
+        matchesPlayed:
+          type: integer
+        wins:
+          type: integer
+        losses:
+          type: integer
+        winStreak:
+          type: integer
+        weeklyWins:
+          type: integer
+      required:
+        - userId
+        - matchesPlayed
+        - wins
+        - losses
+        - winStreak
+        - weeklyWins
+
+    MatchHistoryEntry:
+      type: object
+      properties:
+        challengeId:
+          type: string
+        title:
+          type: string
+        mode:
+          type: string
+        outcome:
+          type: string
+          enum: [win, loss, disputed]
+        opponent:
+          type: string
+          nullable: true
+        playedAt:
+          type: string
+          format: date-time
+      required:
+        - challengeId
+        - title
+        - mode
+        - outcome
+        - playedAt
