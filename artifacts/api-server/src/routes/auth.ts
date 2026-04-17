@@ -176,10 +176,15 @@ router.post("/google", async (req, res) => {
   }
 
   if (existingUserDoc) {
-    const token = generateToken(existingUserDoc.id);
-    tokenStore.set(token, existingUserDoc.id);
-    const stats = await getUserStats(existingUserDoc.id);
-    return res.status(200).json({ user: { ...toSafeUser(existingUserDoc), stats: stats || null }, token });
+    let merged = existingUserDoc;
+    if (email && !existingUserDoc.email) {
+      await collections.users.doc(existingUserDoc.id).set({ email }, { merge: true });
+      merged = { ...existingUserDoc, email };
+    }
+    const token = generateToken(merged.id);
+    tokenStore.set(token, merged.id);
+    const stats = await getUserStats(merged.id);
+    return res.status(200).json({ user: { ...toSafeUser(merged), stats: stats || null }, token });
   }
 
   const usernameConflictSnap = await collections.users.where("username", "==", username!).limit(1).get();

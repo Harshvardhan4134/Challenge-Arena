@@ -28,50 +28,53 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }, [me.data?.id]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <header className="fixed top-0 left-0 right-0 z-50 border-b-4 border-black bg-black">
-        <div className="max-w-2xl mx-auto px-4 h-12 flex items-center justify-between">
+    <div className="min-h-[100dvh] bg-background flex flex-col">
+      <header className="fixed top-0 left-0 right-0 z-50 border-b-4 border-black bg-black pt-[env(safe-area-inset-top)]">
+        <div className="max-w-2xl mx-auto px-3 sm:px-4 min-h-12 flex items-center justify-between">
           <button
+            type="button"
             onClick={() => navigate("/home")}
-            className="display-font text-[#FFE600] text-xl tracking-widest flex items-center gap-2"
+            className="display-font text-[#FFE600] text-base sm:text-xl tracking-widest flex items-center gap-1.5 sm:gap-2 min-h-11 min-w-0"
           >
-            <Swords className="w-4 h-4" />
-            CHALLENGE ARENA
+            <Swords className="w-4 h-4 shrink-0" />
+            <span className="truncate">CHALLENGE ARENA</span>
           </button>
         </div>
       </header>
 
-      <main className="flex-1 pt-12 pb-16 max-w-2xl mx-auto w-full px-3">
+      <main className="flex-1 pt-[calc(3rem+env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] max-w-2xl mx-auto w-full px-3 sm:px-4">
         {children}
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t-4 border-black bg-[#FFE600]">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t-4 border-black bg-[#FFE600] pb-[env(safe-area-inset-bottom)]">
         <div
           className={cn(
-            "max-w-2xl mx-auto grid h-14",
-            bottomNav.length >= 6 ? "grid-cols-6" : "grid-cols-5",
+            "max-w-2xl mx-auto flex w-full",
           )}
         >
           {bottomNav.map(({ path, icon: Icon, label }) => {
             const [isActive] = useRoute(path === "/home" ? "/home" : path + "*");
             return (
               <button
+                type="button"
                 key={path}
                 onClick={() => navigate(path)}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 transition-colors relative border-r-2 border-black last:border-r-0",
-                  isActive ? "bg-black text-[#FFE600]" : "text-black hover:bg-black/10"
+                  "flex flex-1 min-w-0 min-h-[3.25rem] sm:min-h-14 flex-col items-center justify-center gap-0.5 px-0.5 py-2 transition-colors relative border-r-2 border-black last:border-r-0 touch-manipulation active:opacity-90",
+                  isActive ? "bg-black text-[#FFE600]" : "text-black hover:bg-black/10",
                 )}
               >
-                <div className="relative">
-                  <Icon className="w-4 h-4" />
+                <div className="relative shrink-0">
+                  <Icon className="w-[18px] h-[18px] sm:w-5 sm:h-5" />
                   {label === "ALERTS" && unread > 0 && (
-                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF1E56] border border-black text-white text-[8px] font-black rounded-none flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-0.5 bg-[#FF1E56] border border-black text-white text-[8px] font-black rounded-none flex items-center justify-center">
                       {unread > 9 ? "9+" : unread}
                     </span>
                   )}
                 </div>
-                <span className="text-[8px] font-black tracking-wider font-mono">{label}</span>
+                <span className="text-[7px] sm:text-[8px] font-black tracking-tight sm:tracking-wider font-mono text-center leading-tight max-w-full truncate px-0.5">
+                  {label}
+                </span>
               </button>
             );
           })}
