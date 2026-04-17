@@ -4,6 +4,7 @@ import { useRegister } from "@workspace/api-client-react";
 import { setAuthToken } from "@/lib/auth";
 import { firebaseAuth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
 import { exchangeGoogleToken } from "@/lib/google-auth";
+import { apiUrl } from "@/lib/api-url";
 import { signInWithPopup } from "firebase/auth";
 import { Swords, Eye, EyeOff, Mail, Lock, Gamepad2, Hash } from "lucide-react";
 
@@ -64,7 +65,9 @@ export default function Register() {
   };
 
   const fetchIgnForUid = async (uid: string, region: string) => {
-    const res = await fetch(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`);
+    const res = await fetch(
+      apiUrl(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`),
+    );
     const rawText = await res.text();
     let body: any = null;
     try {

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useGetMe, useGetStatsOverview, useListChallenges, useListNotifications } from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
 import { Swords, Plus, Bell, ChevronRight, Trophy } from "lucide-react";
+import { apiUrl } from "@/lib/api-url";
 import { useEffect, useState } from "react";
 
 export default function Home() {
@@ -24,7 +25,9 @@ export default function Home() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`);
+        const res = await fetch(
+          apiUrl(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`),
+        );
         const body = await res.json();
         if (!cancelled && res.ok && body?.ign) {
           setResolvedIgn(String(body.ign));

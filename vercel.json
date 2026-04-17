@@ -2,5 +2,11 @@
   "framework": null,
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @workspace/challenge-arena run build",
-  "outputDirectory": "artifacts/challenge-arena/dist/public"
+  "outputDirectory": "artifacts/challenge-arena/dist/public",
+  "rewrites": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
+  ]
 }

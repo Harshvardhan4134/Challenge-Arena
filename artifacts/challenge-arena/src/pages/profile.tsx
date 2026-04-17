@@ -8,6 +8,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { clearAuthToken } from "@/lib/auth";
+import { apiUrl } from "@/lib/api-url";
 import { ArrowLeft, Edit2, Save, X, Trophy, Target, Flame, Hash, LogOut } from "lucide-react";
 
 export default function Profile() {
@@ -68,7 +69,9 @@ export default function Profile() {
 
     setIsFetchingIgn(true);
     try {
-      const res = await fetch(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(lookupRegion)}`);
+      const res = await fetch(
+        apiUrl(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(lookupRegion)}`),
+      );
       const body = await res.json();
       if (!res.ok || !body?.ign) {
         setLookupError(body?.message || "Could not fetch IGN for this UID.");

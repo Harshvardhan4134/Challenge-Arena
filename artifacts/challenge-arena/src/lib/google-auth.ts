@@ -1,3 +1,5 @@
+import { apiUrl } from "@/lib/api-url";
+
 export type GoogleAuthPayload = {
   idToken: string;
   username?: string;
@@ -21,7 +23,7 @@ export async function exchangeGoogleToken(payload: GoogleAuthPayload): Promise<{
   status: number;
   body: GoogleAuthResponse;
 }> {
-  const res = await fetch("/api/auth/google", {
+  const res = await fetch(apiUrl("/api/auth/google"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
