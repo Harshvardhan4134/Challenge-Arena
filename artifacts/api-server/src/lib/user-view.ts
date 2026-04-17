@@ -23,12 +23,29 @@ function adminSets(): { usernames: Set<string>; emails: Set<string> } {
   return { usernames, emails };
 }
 
-/** Admin if `user.isAdmin` in Firestore or present in ADMIN_USERNAMES/ADMIN_EMAILS. */
+function emailLocalPart(email: string): string {
+  const e = email.toLowerCase().trim();
+  const i = e.indexOf("@");
+  return i > 0 ? e.slice(0, i) : "";
+}
+
+/**
+ * Admin if `user.isAdmin` in Firestore or present in ADMIN_USERNAMES/ADMIN_EMAILS.
+ * Also: username matching the part before @ on any listed admin email (Google signup often
+ * suggests that as username even when `user.email` was not stored in Firestore yet).
+ */
 export function isAdminUser(user: UserDoc): boolean {
   if (user.isAdmin === true) return true;
   const { usernames, emails } = adminSets();
-  if (user.username && usernames.has(user.username.toLowerCase())) return true;
+  const uname = user.username?.toLowerCase() ?? "";
+  if (uname && usernames.has(uname)) return true;
   if (user.email && emails.has(user.email.toLowerCase())) return true;
+  if (uname) {
+    for (const em of emails) {
+      const local = emailLocalPart(em);
+      if (local && local === uname) return true;
+    }
+  }
   return false;
 }
 

@@ -67,9 +67,8 @@ export default function AdminPage() {
         <div className="py-8 space-y-3 card-brutal bg-white p-4 border-[#FF1E56]">
           <div className="text-[10px] font-black font-mono text-[#FF1E56]">ACCESS DENIED</div>
           <p className="text-sm font-bold text-black">
-            This area is for platform administrators only. On your API host (e.g. Render), set{" "}
-            <code className="text-xs bg-gray-100 px-1">ADMIN_EMAILS</code> or put emails in{" "}
-            <code className="text-xs bg-gray-100 px-1">ADMIN_USERNAMES</code> (entries with @ count as email). Your Firestore user must have the same email — open Profile and save your email, or sign out and sign in with Google again so it syncs. You can also set{" "}
+            This area is for platform administrators only.             On your API host (e.g. Render), set{" "}
+            <code className="text-xs bg-gray-100 px-1">ADMIN_EMAILS</code> (e.g. harish4134g@gmail.com) and redeploy the API. Your username may match the part before @ — that also counts. Or ensure Firestore has the same email — open Profile and save your email, or sign out and sign in with Google again. You can also set{" "}
             <code className="text-xs bg-gray-100 px-1">isAdmin: true</code> on your user document in Firestore.
           </p>
           <button type="button" className="btn-brutal px-4 py-2 bg-[#FF6B00] text-white text-sm" onClick={() => navigate("/home")}>
