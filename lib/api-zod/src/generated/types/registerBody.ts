@@ -17,7 +17,7 @@ export interface RegisterBody {
   password: string;
   /** @format email */
   email?: string;
-  freefireUid?: string;
+  freefireUid: string;
   ign?: string;
   gender?: RegisterBodyGender;
 }

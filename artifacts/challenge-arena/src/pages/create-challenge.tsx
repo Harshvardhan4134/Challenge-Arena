@@ -64,7 +64,7 @@ export default function CreateChallenge() {
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Title */}
           <div>
-            <label className="section-label block mb-1.5">Challenge Title *</label>
+            <label className="block mb-1.5 text-[10px] font-black font-mono uppercase tracking-widest text-black">Challenge Title *</label>
             <input
               type="text"
               value={title}
@@ -77,7 +77,7 @@ export default function CreateChallenge() {
 
           {/* Mode */}
           <div>
-            <label className="section-label block mb-2">Match Mode *</label>
+            <label className="block mb-2 text-[10px] font-black font-mono uppercase tracking-widest text-black">Match Mode *</label>
             <div className="grid grid-cols-3 gap-0 border-2 border-black overflow-hidden">
               {MODES.map(m => (
                 <button
@@ -97,7 +97,7 @@ export default function CreateChallenge() {
 
           {/* Time */}
           <div>
-            <label className="section-label block mb-1.5">Match Date & Time *</label>
+            <label className="block mb-1.5 text-[10px] font-black font-mono uppercase tracking-widest text-black">Match Date & Time *</label>
             <input
               type="datetime-local"
               value={scheduledAt}
@@ -110,7 +110,7 @@ export default function CreateChallenge() {
 
           {/* Rules */}
           <div>
-            <label className="section-label block mb-2">Rules</label>
+            <label className="block mb-2 text-[10px] font-black font-mono uppercase tracking-widest text-black">Rules</label>
             <div className="grid grid-cols-2 gap-2">
               {PRESET_RULES.map(rule => (
                 <button
@@ -142,18 +142,19 @@ export default function CreateChallenge() {
 
           {/* Team name */}
           <div>
-            <label className="section-label block mb-1.5">Your Team Name</label>
+            <label className="block mb-1.5 text-[10px] font-black font-mono uppercase tracking-widest text-black">Your Team Name *</label>
             <input
               type="text"
               value={teamName}
               onChange={e => setTeamName(e.target.value)}
+              required
               className={inputCls}
               placeholder={`e.g. ${mode} Squad`}
             />
           </div>
 
           {error && (
-            <div className="border-2 border-[#FF1E56] bg-[#FF1E56]/10 px-3 py-2 text-sm font-black text-[#FF1E56]">
+            <div className="border-2 border-[#FF1E56] bg-[#FF1E56] px-3 py-2 text-sm font-black text-white">
               {error}
             </div>
           )}

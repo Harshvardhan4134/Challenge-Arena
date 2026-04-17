@@ -30,7 +30,7 @@ export default function Register() {
         username: form.username,
         password: form.password,
         email: form.email || undefined,
-        freefireUid: form.freefireUid || undefined,
+        freefireUid: form.freefireUid,
         ign: form.ign || undefined,
         gender: (form.gender as "male" | "female" | "other") || undefined,
       },
@@ -133,7 +133,7 @@ export default function Register() {
               {/* SECTION: Free Fire Profile */}
               <div className="mb-4">
                 <div className="bg-[#FF6B00] text-white text-[10px] font-black font-mono tracking-widest px-3 py-1.5 mb-3">
-                  FREE FIRE PROFILE <span className="opacity-70">(OPTIONAL)</span>
+                  FREE FIRE PROFILE
                 </div>
 
                 <div className="space-y-3">
@@ -141,14 +141,15 @@ export default function Register() {
                   <div>
                     <label className="flex items-center gap-1.5 text-black text-xs font-black mb-1">
                       <Hash className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      FREE FIRE UID
+                      FREE FIRE UID *
                     </label>
                     <input
                       type="text"
                       value={form.freefireUid}
                       onChange={set("freefireUid")}
+                      required
                       className="w-full px-3 py-2.5 bg-white border-2 border-black text-black text-sm font-bold focus:outline-none focus:border-[#FF6B00] placeholder:text-gray-400 placeholder:font-normal"
-                      placeholder="Enter your UID"
+                      placeholder="Enter your UID (required)"
                     />
                   </div>
 

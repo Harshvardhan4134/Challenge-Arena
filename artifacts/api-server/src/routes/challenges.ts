@@ -131,7 +131,7 @@ router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => 
   const parsed = JoinChallengeBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
 
-  const { side } = parsed.data;
+  const { side, teamName } = parsed.data;
   const userId = req.userId!;
 
   const [challenge] = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
@@ -148,7 +148,8 @@ router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => 
     await db.insert(teamMembersTable).values({ teamId: challenge.teamAId, userId, isLeader: false });
   } else {
     if (!challenge.teamBId) {
-      const [newTeamB] = await db.insert(teamsTable).values({ name: "Challengers", leaderId: userId }).returning();
+      const resolvedTeamName = teamName?.trim() || "Challengers";
+      const [newTeamB] = await db.insert(teamsTable).values({ name: resolvedTeamName, leaderId: userId }).returning();
       await db.insert(teamMembersTable).values({ teamId: newTeamB.id, userId, isLeader: true });
       await db.update(challengesTable).set({ teamBId: newTeamB.id }).where(eq(challengesTable.id, challengeId));
     } else {

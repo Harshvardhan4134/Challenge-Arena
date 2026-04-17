@@ -580,6 +580,7 @@ components:
       required:
         - username
         - password
+        - freefireUid
 
     LoginBody:
       type: object
@@ -771,6 +772,9 @@ components:
         side:
           type: string
           enum: [teamA, teamB]
+        teamName:
+          type: string
+          description: Team name (required when joining as team B leader)
       required:
         - side
 

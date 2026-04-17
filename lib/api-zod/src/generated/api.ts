@@ -29,7 +29,7 @@ export const RegisterBody = zod.object({
     .max(registerBodyUsernameMax),
   password: zod.string().min(registerBodyPasswordMin),
   email: zod.string().email().optional(),
-  freefireUid: zod.string().optional(),
+  freefireUid: zod.string(),
   ign: zod.string().optional(),
   gender: zod.enum(["male", "female", "other"]).nullish(),
 });
@@ -312,6 +312,7 @@ export const JoinChallengeParams = zod.object({
 
 export const JoinChallengeBody = zod.object({
   side: zod.enum(["teamA", "teamB"]),
+  teamName: zod.string().optional(),
 });
 
 export const JoinChallengeResponse = zod.object({
