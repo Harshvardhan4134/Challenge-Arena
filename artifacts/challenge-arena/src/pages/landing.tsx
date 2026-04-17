@@ -112,7 +112,7 @@ export default function Landing() {
           >
             {[
               { label: "ACTIVE MATCHES", value: stats.data?.activeChallenges ?? "—" },
-              { label: "PLAYERS", value: stats.data?.totalPlayers ?? "—" },
+              { label: "LEGENDS IN BATTLE", value: stats.data?.totalPlayers ?? "—" },
               { label: "TODAY", value: stats.data?.matchesToday ?? "—" },
             ].map(({ label, value }) => (
               <div key={label} className="card-brutal p-3 text-center">

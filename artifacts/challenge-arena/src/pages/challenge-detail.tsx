@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { ArrowLeft, Send, Shield, Trophy, Key, Lock, MessageSquare, Users, Clock, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatChallengeRuleId } from "@/lib/challenge-rules";
 
 function useCountdown(target: string) {
   const [label, setLabel] = useState("");
@@ -143,8 +144,8 @@ export default function ChallengeDetail() {
           </div>
           {c.rules.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mt-3">
-              {c.rules.map(r => (
-                <span key={r} className="tag-orange">{r}</span>
+              {c.rules.map((r) => (
+                <span key={r} className="tag-orange">{formatChallengeRuleId(r)}</span>
               ))}
             </div>
           )}

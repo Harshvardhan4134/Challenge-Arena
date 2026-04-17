@@ -63,7 +63,7 @@ async function buildChallengeResponse(challenge: ChallengeDoc) {
 
   let teamBData = null;
   const now = Date.now();
-  const scheduledAtMs = challenge.scheduledAt.getTime();
+  const scheduledAtMs = new Date(challenge.scheduledAt).getTime();
   const isExpired = ["open", "full", "in_progress"].includes(challenge.status) &&
     now > scheduledAtMs + CHALLENGE_TTL_MS;
   if (challenge.teamBId) {
@@ -331,7 +331,8 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
 
   if (existing.length > 0) {
     const prev = existing[0];
-    const isTimedOut = prev.status === "pending" && (Date.now() - prev.createdAt.getTime()) > RESULT_TIMEOUT_MS;
+    const isTimedOut =
+      prev.status === "pending" && Date.now() - new Date(prev.createdAt).getTime() > RESULT_TIMEOUT_MS;
     if (isTimedOut) {
       await collections.matchResults.doc(prev.id).set({ status: "disputed" }, { merge: true });
       await collections.challenges.doc(challengeId).set({ status: "disputed" }, { merge: true });

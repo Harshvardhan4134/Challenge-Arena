@@ -8,6 +8,7 @@ const lookupCache = new Map<string, { expiresAt: number; value: LookupResult }>(
 
 type LookupResult = {
   ign: string | null;
+  level: number | null;
   raw: unknown;
   provider: string;
 };
@@ -23,6 +24,20 @@ function extractIgn(raw: any): string | null {
     raw?.name ??
     null
   );
+}
+
+function extractLevel(raw: any): number | null {
+  const value =
+    raw?.basicInfo?.level ??
+    raw?.basicinfo?.level ??
+    raw?.data?.basicInfo?.level ??
+    raw?.player?.level ??
+    raw?.AccountInfo?.AccountLevel ??
+    null;
+
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function getCachedResult(uid: string, region: string): LookupResult | null {
@@ -84,7 +99,7 @@ async function fetchFromFreeFireCommunity(uid: string, region: string): Promise<
   }
 
   const data = await res.json();
-  return { ign: extractIgn(data), raw: data, provider: "freefirecommunity" };
+  return { ign: extractIgn(data), level: extractLevel(data), raw: data, provider: "freefirecommunity" };
 }
 
 async function fetchFromPublicRepoProvider(uid: string, region: string): Promise<LookupResult> {
@@ -114,7 +129,7 @@ async function fetchFromPublicRepoProvider(uid: string, region: string): Promise
           continue;
         }
         const data = await res.json();
-        return { ign: extractIgn(data), raw: data, provider: `public-mirror:${url}` };
+        return { ign: extractIgn(data), level: extractLevel(data), raw: data, provider: `public-mirror:${url}` };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
       }
@@ -133,7 +148,7 @@ router.get("/profile", async (req, res) => {
 
   const cached = getCachedResult(uid, region);
   if (cached?.ign) {
-    return res.status(200).json({ uid, region, ign: cached.ign, provider: `${cached.provider} (cache)` });
+    return res.status(200).json({ uid, region, ign: cached.ign, level: cached.level, provider: `${cached.provider} (cache)` });
   }
 
   // Best default for MVP: free repo endpoint first, paid provider second, legacy fallback third.
@@ -143,7 +158,7 @@ router.get("/profile", async (req, res) => {
       return res.status(404).json({ error: "not_found", message: "No player name found for this UID", providerResponse: result.raw });
     }
     setCachedResult(uid, region, result);
-    return res.status(200).json({ uid, region, ign: result.ign, provider: result.provider });
+    return res.status(200).json({ uid, region, ign: result.ign, level: result.level, provider: result.provider });
   } catch (error) {
     // Fallback chain: paid/community API key provider.
     try {
@@ -151,7 +166,7 @@ router.get("/profile", async (req, res) => {
         const paidFallback = await withRetry(() => fetchFromFreeFireCommunity(uid, region));
         if (paidFallback.ign) {
           setCachedResult(uid, region, paidFallback);
-          return res.status(200).json({ uid, region, ign: paidFallback.ign, provider: paidFallback.provider });
+          return res.status(200).json({ uid, region, ign: paidFallback.ign, level: paidFallback.level, provider: paidFallback.provider });
         }
       }
     } catch {
@@ -166,8 +181,9 @@ router.get("/profile", async (req, res) => {
         const legacyData = await legacyRes.json();
         const ign = extractIgn(legacyData);
         if (ign) {
-          setCachedResult(uid, region, { ign, raw: legacyData, provider: "legacy-public-provider" });
-          return res.status(200).json({ uid, region, ign, provider: "legacy-public-provider" });
+          const level = extractLevel(legacyData);
+          setCachedResult(uid, region, { ign, level, raw: legacyData, provider: "legacy-public-provider" });
+          return res.status(200).json({ uid, region, ign, level, provider: "legacy-public-provider" });
         }
       }
     } catch {

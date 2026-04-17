@@ -4,8 +4,8 @@ import { useCreateChallenge } from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
 import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CHALLENGE_RULE_PRESETS } from "@/lib/challenge-rules";
 
-const PRESET_RULES = ["Headshot only", "No gloo wall", "No revive", "No spray", "Sniper only"];
 const MODES = ["1v1", "2v2", "4v4"] as const;
 
 export default function CreateChallenge() {
@@ -25,21 +25,20 @@ export default function CreateChallenge() {
     },
   });
 
-  const toggleRule = (rule: string) => {
-    setRules(prev => prev.includes(rule) ? prev.filter(r => r !== rule) : [...prev, rule]);
+  const toggleRule = (ruleId: string) => {
+    setRules((prev) => (prev.includes(ruleId) ? prev.filter((r) => r !== ruleId) : [...prev, ruleId]));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!scheduledAt) return setError("Please set a match date and time.");
-    const allRules = [...rules, ...(customRule.trim() ? [customRule.trim()] : [])];
     mutate({
       data: {
         title,
         mode,
         scheduledAt: new Date(scheduledAt).toISOString(),
-        rules: allRules,
+        rules,
         customRule: customRule.trim() || undefined,
         teamName: teamName || `${mode} Squad`,
       },
@@ -112,20 +111,20 @@ export default function CreateChallenge() {
           <div>
             <label className="block mb-2 text-[10px] font-black font-mono uppercase tracking-widest text-black">Rules</label>
             <div className="grid grid-cols-2 gap-2">
-              {PRESET_RULES.map(rule => (
+              {CHALLENGE_RULE_PRESETS.map(({ id, label }) => (
                 <button
-                  key={rule}
+                  key={id}
                   type="button"
-                  onClick={() => toggleRule(rule)}
+                  onClick={() => toggleRule(id)}
                   className={cn(
                     "flex items-center gap-2 px-3 py-2 border-2 border-black text-sm font-bold transition-colors text-left",
-                    rules.includes(rule) ? "bg-[#FF6B00] text-white" : "bg-white text-black hover:bg-[#FFE600]/50"
+                    rules.includes(id) ? "bg-[#FF6B00] text-white" : "bg-white text-black hover:bg-[#FFE600]/50"
                   )}
                 >
-                  <div className={cn("w-3.5 h-3.5 border-2 border-current flex items-center justify-center shrink-0", rules.includes(rule) ? "bg-white" : "")}>
-                    {rules.includes(rule) && <div className="w-1.5 h-1.5 bg-[#FF6B00]" />}
+                  <div className={cn("w-3.5 h-3.5 border-2 border-current flex items-center justify-center shrink-0", rules.includes(id) ? "bg-white" : "")}>
+                    {rules.includes(id) && <div className="w-1.5 h-1.5 bg-[#FF6B00]" />}
                   </div>
-                  {rule}
+                  {label}
                 </button>
               ))}
             </div>

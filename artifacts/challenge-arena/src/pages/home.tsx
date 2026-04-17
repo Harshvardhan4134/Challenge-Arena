@@ -16,6 +16,7 @@ export default function Home() {
   const user = me.data;
   const unreadNotifs = notifications.data?.filter(n => !n.isRead) ?? [];
   const [resolvedIgn, setResolvedIgn] = useState("");
+  const [resolvedLevel, setResolvedLevel] = useState<number | null>(null);
 
   useEffect(() => {
     const uid = user?.freefireUid?.trim();
@@ -29,8 +30,9 @@ export default function Home() {
           apiUrl(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`),
         );
         const body = await res.json();
-        if (!cancelled && res.ok && body?.ign) {
-          setResolvedIgn(String(body.ign));
+        if (!cancelled && res.ok) {
+          if (body?.ign) setResolvedIgn(String(body.ign));
+          if (typeof body?.level === "number") setResolvedLevel(body.level);
         }
       } catch {
         // Keep existing username fallback when lookup fails.
@@ -54,7 +56,10 @@ export default function Home() {
             {displayName}
           </div>
           {user?.freefireUid && (
-            <div className="text-xs font-mono font-bold mt-1 text-gray-700">UID: {user.freefireUid}</div>
+            <div className="text-xs font-mono font-bold mt-1 text-gray-700">
+              UID: {user.freefireUid}
+              {resolvedLevel !== null ? ` · LVL ${resolvedLevel}` : ""}
+            </div>
           )}
         </motion.div>
 
@@ -85,7 +90,7 @@ export default function Home() {
           <div className="grid grid-cols-3 gap-2">
             {[
               { label: "ACTIVE", value: stats.data.activeChallenges, style: { backgroundColor: "#00854B", color: "#FFFFFF" } },
-              { label: "PLAYERS", value: stats.data.totalPlayers, style: { backgroundColor: "#FF6B00", color: "#FFFFFF" } },
+              { label: "REGISTERED", value: stats.data.totalPlayers, style: { backgroundColor: "#FF6B00", color: "#FFFFFF" } },
               { label: "TODAY", value: stats.data.matchesToday, style: { backgroundColor: "#FF1E56", color: "#FFFFFF" } },
             ].map(({ label, value, style }) => (
               <div key={label} className="card-brutal p-3 text-center" style={style}>

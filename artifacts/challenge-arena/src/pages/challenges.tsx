@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { motion } from "framer-motion";
 import { useListChallenges } from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
+import { formatChallengeRuleId } from "@/lib/challenge-rules";
 import { Swords, Plus, Users, Clock } from "lucide-react";
 
 const MODES = ["", "1v1", "2v2", "4v4"] as const;
@@ -125,8 +126,8 @@ export default function Challenges() {
                         </div>
                         {c.rules.length > 0 && (
                           <div className="flex gap-1 flex-wrap">
-                            {c.rules.slice(0, 2).map(r => (
-                              <span key={r} className="tag-black" style={{ fontSize: 9 }}>{r}</span>
+                            {c.rules.slice(0, 2).map((r) => (
+                              <span key={r} className="tag-black" style={{ fontSize: 9 }}>{formatChallengeRuleId(r)}</span>
                             ))}
                             {c.rules.length > 2 && <span className="tag-black" style={{ fontSize: 9 }}>+{c.rules.length - 2}</span>}
                           </div>
