@@ -78,7 +78,7 @@ export type MatchResultDoc = {
   id: string;
   challengeId: string;
   submittedBy: string;
-  winningSide: "teamA" | "teamB";
+  winningSide: "teamA" | "teamB" | "not_played";
   screenshotUrl: string | null;
   status: "pending" | "confirmed" | "disputed";
   createdAt: string;

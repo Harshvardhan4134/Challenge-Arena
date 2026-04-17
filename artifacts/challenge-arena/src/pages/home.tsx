@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { useGetMe, useGetStatsOverview, useListChallenges, useListNotifications } from "@workspace/api-client-react";
+import { useGetMe, useGetStatsOverview, useListChallenges, useListNotifications, useGetUserMatchHistory } from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
 import { Swords, Plus, Bell, ChevronRight, Trophy } from "lucide-react";
 import { apiUrl } from "@/lib/api-url";
@@ -12,6 +12,9 @@ export default function Home() {
   const stats = useGetStatsOverview({ query: { queryKey: ["getStatsOverview"] } });
   const challenges = useListChallenges({ query: { queryKey: ["listChallenges"] } });
   const notifications = useListNotifications({ query: { queryKey: ["listNotifications"] } });
+  const recentHistory = useGetUserMatchHistory(me.data?.id ?? "", {
+    query: { queryKey: ["getUserMatchHistory", me.data?.id], enabled: !!me.data?.id },
+  });
 
   const user = me.data;
   const unreadNotifs = notifications.data?.filter(n => !n.isRead) ?? [];
@@ -130,10 +133,10 @@ export default function Home() {
           </div>
         )}
 
-        {/* Recent challenges */}
+        {/* Upcoming challenges */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <div className="font-black text-sm">RECENT MATCHES</div>
+            <div className="font-black text-sm">UPCOMING MATCHES</div>
             <button onClick={() => navigate("/challenges")} className="text-xs font-black flex items-center gap-0.5 underline hover:text-[#FF6B00]">
               SEE ALL <ChevronRight className="w-3 h-3" />
             </button>
@@ -145,7 +148,7 @@ export default function Home() {
           ) : challenges.data?.length === 0 ? (
             <div className="card-brutal p-8 text-center">
               <Swords className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <p className="font-bold text-sm text-black">No active challenges yet.</p>
+              <p className="font-bold text-sm text-black">No upcoming challenges yet.</p>
               <button
                 onClick={() => navigate("/challenges/create")}
                 className="btn-brutal mt-3 px-5 py-2 bg-[#FF6B00] text-white text-xs"
@@ -175,6 +178,44 @@ export default function Home() {
                     </div>
                   </div>
                 </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent match history */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="font-black text-sm">RECENT MATCHES</div>
+            <button onClick={() => navigate("/profile/me")} className="text-xs font-black flex items-center gap-0.5 underline hover:text-[#FF6B00]">
+              VIEW HISTORY <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+          {recentHistory.isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map(i => <div key={i} className="h-14 border-2 border-black bg-white animate-pulse" />)}
+            </div>
+          ) : !recentHistory.data || recentHistory.data.length === 0 ? (
+            <div className="card-brutal-sm p-4 bg-white text-xs font-bold text-gray-600">
+              No recent completed/disputed matches yet.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {recentHistory.data.slice(0, 3).map((m) => (
+                <div key={m.challengeId} className="card-brutal-sm p-3 bg-white">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-black text-sm truncate">{m.title}</div>
+                    <span className={cn(
+                      "text-[10px] font-black font-mono px-2 py-0.5 border-2 border-black",
+                      m.outcome === "win" ? "bg-[#00854B] text-white" : m.outcome === "loss" ? "bg-[#FF1E56] text-white" : "bg-gray-200 text-black",
+                    )}>
+                      {m.outcome.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="text-[11px] font-mono text-gray-600 mt-1">
+                    {m.mode} · {new Date(m.playedAt).toLocaleString()}
+                  </div>
+                </div>
               ))}
             </div>
           )}

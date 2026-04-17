@@ -918,7 +918,7 @@ components:
       properties:
         winningSide:
           type: string
-          enum: [teamA, teamB]
+          enum: [teamA, teamB, not_played]
         screenshotUrl:
           type: string
           nullable: true

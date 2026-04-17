@@ -108,12 +108,11 @@ export default function Landing() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="grid grid-cols-3 gap-3 max-w-lg"
+            className="grid grid-cols-2 gap-3 max-w-md"
           >
             {[
               { label: "ACTIVE MATCHES", value: stats.data?.activeChallenges ?? "—" },
-              { label: "LEGENDS IN BATTLE", value: stats.data?.totalPlayers ?? "—" },
-              { label: "TODAY", value: stats.data?.matchesToday ?? "—" },
+              { label: "REGISTERED PLAYERS", value: stats.data?.totalPlayers ?? "—" },
             ].map(({ label, value }) => (
               <div key={label} className="card-brutal p-3 text-center">
                 <div className="display-font text-4xl text-[#FF6B00]">{value}</div>

@@ -12,4 +12,5 @@ export type SubmitResultBodyWinningSide =
 export const SubmitResultBodyWinningSide = {
   teamA: "teamA",
   teamB: "teamB",
+  not_played: "not_played",
 } as const;

@@ -65,7 +65,7 @@ export default function ChallengeDetail() {
   const [msgText, setMsgText] = useState("");
   const [roomId, setRoomId] = useState("");
   const [roomPass, setRoomPass] = useState("");
-  const [resultSide, setResultSide] = useState<"teamA" | "teamB" | "">("");
+  const [resultSide, setResultSide] = useState<"teamA" | "teamB" | "not_played" | "">("");
   const [resultProofUrl, setResultProofUrl] = useState("");
   const [error, setError] = useState("");
 
@@ -390,7 +390,7 @@ export default function ChallengeDetail() {
               <span className="text-[10px] font-black font-mono text-black uppercase tracking-widest">SUBMIT MATCH RESULT</span>
             </div>
             <div className="text-[10px] font-mono text-gray-500 mb-3">Only you (challenge creator) can post the result.</div>
-            <div className="grid grid-cols-2 gap-2 mb-3">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               <button
                 onClick={() => setResultSide("teamA")}
                 className={cn("py-2.5 font-black text-sm transition-all", resultSide === "teamA" ? "bg-black text-[#FFE600]" : "bg-white text-black hover:bg-[#FFE600]/30")}
@@ -405,13 +405,23 @@ export default function ChallengeDetail() {
               >
                 {c.teamB?.name || "TEAM B"} WON
               </button>
+              <button
+                onClick={() => setResultSide("not_played")}
+                className={cn("py-2.5 font-black text-sm transition-all", resultSide === "not_played" ? "bg-gray-600 text-white" : "bg-white text-black hover:bg-[#FFE600]/30")}
+                style={{ border: "3px solid #000" }}
+              >
+                MATCH NOT TAKEN
+              </button>
             </div>
             <div className="space-y-2 mb-3">
+              <div className="text-[10px] font-mono text-gray-500">
+                Proof image is required for win/loss results. For "Match not taken", proof is optional.
+              </div>
               <input
                 type="url"
                 value={resultProofUrl}
                 onChange={(e) => setResultProofUrl(e.target.value)}
-                placeholder="Result proof image URL (required)"
+                placeholder={resultSide === "not_played" ? "Result proof image URL (optional for not taken)" : "Result proof image URL (required)"}
                 className={inputCls}
               />
               <input
@@ -423,7 +433,7 @@ export default function ChallengeDetail() {
             </div>
             <button
               onClick={() => resultSide && submitResult.mutate({ challengeId, data: { winningSide: resultSide, screenshotUrl: resultProofUrl } })}
-              disabled={!resultSide || !resultProofUrl.trim() || submitResult.isPending}
+              disabled={!resultSide || (resultSide !== "not_played" && !resultProofUrl.trim()) || submitResult.isPending}
               className="btn-brutal w-full py-2.5 bg-[#00854B] text-white text-sm disabled:opacity-50"
             >
               {submitResult.isPending ? "SUBMITTING..." : "SUBMIT RESULT"}

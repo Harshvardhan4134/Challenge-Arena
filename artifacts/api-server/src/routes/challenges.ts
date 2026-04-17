@@ -358,7 +358,7 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
   if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
   const challenge = challengeDoc.data() as ChallengeDoc;
   if (!challenge.teamBId) return res.status(400).json({ error: "invalid_state", message: "Challenge does not have two teams yet" });
-  if (!screenshotUrl?.trim()) {
+  if (winningSide !== "not_played" && !screenshotUrl?.trim()) {
     return res.status(400).json({ error: "validation", message: "Result proof image is required" });
   }
 
@@ -381,6 +381,11 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
     }
     if (prev.winningSide === winningSide) {
       await collections.matchResults.doc(prev.id).set({ status: "confirmed" }, { merge: true });
+      if (winningSide === "not_played") {
+        await collections.challenges.doc(challengeId).set({ status: "cancelled", winnerId: null }, { merge: true });
+        const resultDoc = await collections.matchResults.doc(prev.id).get();
+        return res.status(200).json(resultDoc.data() as MatchResultDoc);
+      }
       const winnerTeamId = winningSide === "teamA" ? challenge.teamAId : challenge.teamBId;
       const loserTeamId = winningSide === "teamA" ? challenge.teamBId : challenge.teamAId;
       if (winnerTeamId) {
@@ -421,12 +426,17 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
     id: crypto.randomUUID(),
     challengeId,
     submittedBy: userId,
-    winningSide: winningSide as "teamA" | "teamB",
-    screenshotUrl: screenshotUrl,
-    status: "pending",
+    winningSide: winningSide as "teamA" | "teamB" | "not_played",
+    screenshotUrl: screenshotUrl?.trim() ? screenshotUrl.trim() : null,
+    status: winningSide === "not_played" ? "confirmed" : "pending",
     createdAt: nowIso(),
   };
   await collections.matchResults.doc(result.id).set(result);
+
+  if (winningSide === "not_played") {
+    await collections.challenges.doc(challengeId).set({ status: "cancelled", winnerId: null }, { merge: true });
+    return res.status(200).json(result);
+  }
 
   const opponentTeamId = submitter.teamId === challenge.teamAId ? challenge.teamBId : challenge.teamAId;
   if (opponentTeamId) {

@@ -67,8 +67,8 @@ export default function AdminPage() {
         <div className="py-8 space-y-3 card-brutal bg-white p-4 border-[#FF1E56]">
           <div className="text-[10px] font-black font-mono text-[#FF1E56]">ACCESS DENIED</div>
           <p className="text-sm font-bold text-black">
-            This area is for platform administrators only. Ask the owner to add your username to{" "}
-            <code className="text-xs bg-gray-100 px-1">ADMIN_USERNAMES</code> on the API server or set{" "}
+            This area is for platform administrators only. Ask the owner to add your username/email to{" "}
+            <code className="text-xs bg-gray-100 px-1">ADMIN_USERNAMES / ADMIN_EMAILS</code> on the API server or set{" "}
             <code className="text-xs bg-gray-100 px-1">isAdmin: true</code> on your user document in Firestore.
           </p>
           <button type="button" className="btn-brutal px-4 py-2 bg-[#FF6B00] text-white text-sm" onClick={() => navigate("/home")}>
