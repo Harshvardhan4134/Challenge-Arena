@@ -1,18 +1,18 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { usersTable, playerStatsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
 import { UpdateUserBody } from "@workspace/api-zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import { collections, type PlayerStatsDoc, type UserDoc } from "../lib/firestore-db";
 
 const router = Router();
 
 router.get("/:userId", async (req, res) => {
   const { userId } = req.params;
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (!user) return res.status(404).json({ error: "not_found", message: "User not found" });
+  const userDoc = await collections.users.doc(userId).get();
+  if (!userDoc.exists) return res.status(404).json({ error: "not_found", message: "User not found" });
+  const user = userDoc.data() as UserDoc;
 
-  const [stats] = await db.select().from(playerStatsTable).where(eq(playerStatsTable.userId, userId)).limit(1);
+  const statsDoc = await collections.playerStats.doc(userId).get();
+  const stats = statsDoc.exists ? (statsDoc.data() as PlayerStatsDoc) : null;
   const { passwordHash: _, ...safeUser } = user;
   return res.status(200).json({ ...safeUser, stats: stats || null });
 });
@@ -26,12 +26,25 @@ router.put("/:userId/update", requireAuth, async (req: AuthRequest, res) => {
 
   const { freefireUid, ign, gender } = parsed.data;
   const updates: Record<string, unknown> = {};
-  if (freefireUid !== undefined) updates.freefireUid = freefireUid;
+  if (freefireUid !== undefined) {
+    const uidSnap = await collections.users.where("freefireUid", "==", freefireUid).limit(1).get();
+    if (!uidSnap.empty) {
+      const conflictUser = uidSnap.docs[0].data() as UserDoc;
+      if (conflictUser.id !== userId) {
+        return res.status(400).json({ error: "conflict", message: "Free Fire UID is already registered" });
+      }
+    }
+    updates.freefireUid = freefireUid;
+  }
   if (ign !== undefined) updates.ign = ign;
   if (gender !== undefined) updates.gender = gender;
 
-  const [updated] = await db.update(usersTable).set(updates).where(eq(usersTable.id, userId)).returning();
-  const [stats] = await db.select().from(playerStatsTable).where(eq(playerStatsTable.userId, userId)).limit(1);
+  await collections.users.doc(userId).set(updates, { merge: true });
+  const updatedDoc = await collections.users.doc(userId).get();
+  if (!updatedDoc.exists) return res.status(404).json({ error: "not_found", message: "User not found" });
+  const updated = updatedDoc.data() as UserDoc;
+  const statsDoc = await collections.playerStats.doc(userId).get();
+  const stats = statsDoc.exists ? (statsDoc.data() as PlayerStatsDoc) : null;
   const { passwordHash: _, ...safeUser } = updated;
   return res.status(200).json({ ...safeUser, stats: stats || null });
 });

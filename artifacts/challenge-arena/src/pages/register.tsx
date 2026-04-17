@@ -2,13 +2,31 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useRegister } from "@workspace/api-client-react";
 import { setAuthToken } from "@/lib/auth";
-import { Swords, Eye, EyeOff, Mail, Lock, User, Gamepad2, Hash } from "lucide-react";
+import { firebaseAuth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
+import { exchangeGoogleToken } from "@/lib/google-auth";
+import { signInWithPopup } from "firebase/auth";
+import { Swords, Eye, EyeOff, Mail, Lock, Gamepad2, Hash } from "lucide-react";
 
 export default function Register() {
   const [, navigate] = useLocation();
-  const [form, setForm] = useState({ username: "", password: "", email: "", freefireUid: "", ign: "", gender: "" });
+  const [form, setForm] = useState({ password: "", email: "", freefireUid: "", ign: "", gender: "" });
   const [showPass, setShowPass] = useState(false);
   const [error, setError] = useState("");
+  const [lookupError, setLookupError] = useState("");
+  const [isFetchingIgn, setIsFetchingIgn] = useState(false);
+  const [lookupRegion, setLookupRegion] = useState("IND");
+  const [googleIdToken, setGoogleIdToken] = useState("");
+  const [isGooglePending, setIsGooglePending] = useState(false);
+  const [showGoogleProfileModal, setShowGoogleProfileModal] = useState(false);
+  const [googleLookupRegion, setGoogleLookupRegion] = useState("IND");
+  const [googleLookupError, setGoogleLookupError] = useState("");
+  const [isFetchingGoogleIgn, setIsFetchingGoogleIgn] = useState(false);
+  const [googleProfileForm, setGoogleProfileForm] = useState({
+    username: "",
+    freefireUid: "",
+    ign: "",
+    gender: "",
+  });
 
   const { mutate, isPending } = useRegister({
     mutation: {
@@ -27,11 +45,11 @@ export default function Register() {
     setError("");
     mutate({
       data: {
-        username: form.username,
+        username: form.ign.trim(),
         password: form.password,
         email: form.email || undefined,
         freefireUid: form.freefireUid,
-        ign: form.ign || undefined,
+        ign: form.ign.trim() || undefined,
         gender: (form.gender as "male" | "female" | "other") || undefined,
       },
     });
@@ -40,7 +58,131 @@ export default function Register() {
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }));
 
+  const handleFreefireUidChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const uid = e.target.value;
+    setForm((prev) => ({ ...prev, freefireUid: uid }));
+  };
+
+  const fetchIgnForUid = async (uid: string, region: string) => {
+    const res = await fetch(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`);
+    const rawText = await res.text();
+    let body: any = null;
+    try {
+      body = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      body = null;
+    }
+    if (!res.ok || !body?.ign) {
+      throw new Error(body?.message || "Could not fetch player name. Enter manually for now.");
+    }
+    return String(body.ign);
+  };
+
+  const fetchIgnFromUid = async () => {
+    setLookupError("");
+    const uid = form.freefireUid.trim();
+    if (!uid) {
+      setLookupError("Enter Free Fire UID first.");
+      return;
+    }
+    setIsFetchingIgn(true);
+    try {
+      const ign = await fetchIgnForUid(uid, lookupRegion);
+      setForm((prev) => ({ ...prev, ign }));
+    } catch (error) {
+      setLookupError(error instanceof Error ? error.message : "Profile lookup failed. Enter IGN manually.");
+    } finally {
+      setIsFetchingIgn(false);
+    }
+  };
+
+  const fetchIgnForGoogleProfile = async () => {
+    setGoogleLookupError("");
+    const uid = googleProfileForm.freefireUid.trim();
+    if (!uid) {
+      setGoogleLookupError("Enter Free Fire UID first.");
+      return;
+    }
+    setIsFetchingGoogleIgn(true);
+    try {
+      const ign = await fetchIgnForUid(uid, googleLookupRegion);
+      setGoogleProfileForm((prev) => ({ ...prev, ign, username: ign }));
+    } catch (error) {
+      setGoogleLookupError(error instanceof Error ? error.message : "Profile lookup failed. Enter IGN manually.");
+    } finally {
+      setIsFetchingGoogleIgn(false);
+    }
+  };
+
+  const setGoogleField = (k: "username" | "freefireUid" | "ign" | "gender") =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setGoogleProfileForm((prev) => ({ ...prev, [k]: e.target.value }));
+
+  const handleGoogleSignup = async () => {
+    setError("");
+    if (!isFirebaseConfigured() || !firebaseAuth || !googleProvider) {
+      setError("Google sign up is not configured yet. Ask admin to add Firebase env keys.");
+      return;
+    }
+    setIsGooglePending(true);
+    try {
+      const cred = await signInWithPopup(firebaseAuth, googleProvider);
+      const idToken = await cred.user.getIdToken();
+      setGoogleIdToken(idToken);
+
+      const { status, body } = await exchangeGoogleToken({ idToken });
+
+      if (status === 428 && body.needsProfileCompletion) {
+        setGoogleProfileForm((prev) => ({
+          ...prev,
+          username: body.suggested?.username ?? prev.username,
+        }));
+        setShowGoogleProfileModal(true);
+        return;
+      }
+
+      if (status >= 400 || !body.token) {
+        setError(body.message || "Google sign up failed. Please try again.");
+        return;
+      }
+
+      setAuthToken(body.token);
+      navigate("/home");
+    } catch {
+      setError("Google sign up failed. Please try again.");
+    } finally {
+      setIsGooglePending(false);
+    }
+  };
+
+  const submitGoogleProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setIsGooglePending(true);
+    try {
+      const { status, body } = await exchangeGoogleToken({
+        idToken: googleIdToken,
+        username: googleProfileForm.ign.trim() || googleProfileForm.username.trim(),
+        freefireUid: googleProfileForm.freefireUid,
+        ign: googleProfileForm.ign.trim() || undefined,
+        gender: (googleProfileForm.gender as "male" | "female" | "other") || undefined,
+      });
+
+      if (status >= 400 || !body.token) {
+        setError(body.message || "Could not complete Google sign up.");
+        return;
+      }
+
+      setShowGoogleProfileModal(false);
+      setAuthToken(body.token);
+      navigate("/home");
+    } finally {
+      setIsGooglePending(false);
+    }
+  };
+
   return (
+    <>
     <div className="min-h-screen bg-[#FFE600] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         {/* Logo */}
@@ -58,6 +200,14 @@ export default function Register() {
 
           <div className="bg-white p-5">
             <form onSubmit={handleSubmit} className="space-y-0">
+              <button
+                type="button"
+                onClick={handleGoogleSignup}
+                disabled={isGooglePending}
+                className="btn-brutal w-full py-3 bg-white text-black text-sm mb-4 disabled:opacity-60"
+              >
+                {isGooglePending ? "CONNECTING GOOGLE..." : "SIGN UP WITH GOOGLE"}
+              </button>
 
               {/* SECTION: Account */}
               <div className="mb-4">
@@ -66,24 +216,6 @@ export default function Register() {
                 </div>
 
                 <div className="space-y-3">
-                  {/* Username */}
-                  <div>
-                    <label className="flex items-center gap-1.5 text-black text-xs font-black mb-1">
-                      <User className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      USERNAME *
-                    </label>
-                    <input
-                      type="text"
-                      value={form.username}
-                      onChange={set("username")}
-                      required
-                      minLength={3}
-                      maxLength={30}
-                      className="w-full px-3 py-2.5 bg-white border-2 border-black text-black text-sm font-bold focus:outline-none focus:border-[#FF6B00] placeholder:text-gray-400 placeholder:font-normal"
-                      placeholder="Choose a username"
-                    />
-                  </div>
-
                   {/* Email */}
                   <div>
                     <label className="flex items-center gap-1.5 text-black text-xs font-black mb-1">
@@ -146,11 +278,33 @@ export default function Register() {
                     <input
                       type="text"
                       value={form.freefireUid}
-                      onChange={set("freefireUid")}
+                      onChange={handleFreefireUidChange}
                       required
                       className="w-full px-3 py-2.5 bg-white border-2 border-black text-black text-sm font-bold focus:outline-none focus:border-[#FF6B00] placeholder:text-gray-400 placeholder:font-normal"
                       placeholder="Enter your UID (required)"
                     />
+                    <div className="flex gap-2 mt-2">
+                      <select
+                        value={lookupRegion}
+                        onChange={(e) => setLookupRegion(e.target.value)}
+                        className="px-2 py-2 bg-white border-2 border-black text-xs font-bold focus:outline-none focus:border-[#FF6B00]"
+                      >
+                        <option value="IND">IND</option>
+                        <option value="SG">SG</option>
+                        <option value="BR">BR</option>
+                      </select>
+                      <button
+                        type="button"
+                        onClick={fetchIgnFromUid}
+                        disabled={isFetchingIgn}
+                        className="btn-brutal px-3 py-2 bg-white text-black text-[10px] disabled:opacity-60"
+                      >
+                        {isFetchingIgn ? "FETCHING..." : "FETCH IGN FROM UID"}
+                      </button>
+                    </div>
+                    {lookupError && (
+                      <p className="text-[10px] font-bold text-[#FF1E56] mt-1">{lookupError}</p>
+                    )}
                   </div>
 
                   {/* IGN */}
@@ -163,9 +317,15 @@ export default function Register() {
                       type="text"
                       value={form.ign}
                       onChange={set("ign")}
+                      required
+                      minLength={3}
+                      maxLength={30}
                       className="w-full px-3 py-2.5 bg-white border-2 border-black text-black text-sm font-bold focus:outline-none focus:border-[#FF6B00] placeholder:text-gray-400 placeholder:font-normal"
-                      placeholder="Your in-game name"
+                      placeholder="Your exact Free Fire in-game name"
                     />
+                    <p className="text-[10px] font-mono text-gray-500 mt-1">
+                      Your Free Fire in-game name is used as account username.
+                    </p>
                   </div>
 
                   {/* Gender */}
@@ -218,5 +378,91 @@ export default function Register() {
         </div>
       </div>
     </div>
+    {showGoogleProfileModal && (
+      <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+        <div className="w-full max-w-sm bg-white border-4 border-black shadow-[8px_8px_0_#000]">
+          <div className="bg-black px-5 py-3">
+            <div className="display-font text-2xl text-[#FFE600]">COMPLETE YOUR PROFILE</div>
+          </div>
+          <form onSubmit={submitGoogleProfile} className="p-5 space-y-3">
+            <div>
+              <label className="section-label block mb-1">USERNAME *</label>
+              <input
+                type="text"
+                required
+                minLength={3}
+                maxLength={30}
+                value={googleProfileForm.username}
+                onChange={setGoogleField("username")}
+                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+              />
+            </div>
+            <div>
+              <label className="section-label block mb-1">FREE FIRE UID *</label>
+              <input
+                type="text"
+                required
+                value={googleProfileForm.freefireUid}
+                onChange={setGoogleField("freefireUid")}
+                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+              />
+              <div className="flex gap-2 mt-2">
+                <select
+                  value={googleLookupRegion}
+                  onChange={(e) => setGoogleLookupRegion(e.target.value)}
+                  className="px-2 py-2 bg-white border-2 border-black text-xs font-bold focus:outline-none focus:border-[#FF6B00]"
+                >
+                  <option value="IND">IND</option>
+                  <option value="SG">SG</option>
+                  <option value="BR">BR</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={fetchIgnForGoogleProfile}
+                  disabled={isFetchingGoogleIgn}
+                  className="btn-brutal px-3 py-2 bg-white text-black text-[10px] disabled:opacity-60"
+                >
+                  {isFetchingGoogleIgn ? "FETCHING..." : "FETCH IGN FROM UID"}
+                </button>
+              </div>
+              {googleLookupError && (
+                <p className="text-[10px] font-bold text-[#FF1E56] mt-1">{googleLookupError}</p>
+              )}
+            </div>
+            <div>
+              <label className="section-label block mb-1">IGN *</label>
+              <input
+                type="text"
+                required
+                value={googleProfileForm.ign}
+                onChange={setGoogleField("ign")}
+                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+              />
+            </div>
+            <div>
+              <label className="section-label block mb-1">GENDER</label>
+              <select
+                value={googleProfileForm.gender}
+                onChange={setGoogleField("gender")}
+                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+              >
+                <option value="">Prefer not to say</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <button
+              type="submit"
+              disabled={isGooglePending}
+              className="btn-brutal w-full py-3 bg-[#FF6B00] text-white text-sm disabled:opacity-60"
+            >
+              {isGooglePending ? "SAVING..." : "CONTINUE"}
+            </button>
+          </form>
+        </div>
+      </div>
+    )}
+    </>
   );
 }

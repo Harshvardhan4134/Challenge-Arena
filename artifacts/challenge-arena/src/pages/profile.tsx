@@ -26,6 +26,10 @@ export default function Profile() {
 
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ freefireUid: "", ign: "", gender: "" });
+  const [lookupRegion, setLookupRegion] = useState("IND");
+  const [lookupError, setLookupError] = useState("");
+  const [lookupSuccess, setLookupSuccess] = useState("");
+  const [isFetchingIgn, setIsFetchingIgn] = useState(false);
 
   const updateUser = useUpdateUser({
     mutation: {
@@ -48,7 +52,35 @@ export default function Profile() {
   const startEdit = () => {
     const u = user.data;
     setForm({ freefireUid: u?.freefireUid || "", ign: u?.ign || "", gender: u?.gender || "" });
+    setLookupError("");
+    setLookupSuccess("");
     setEditing(true);
+  };
+
+  const fetchIgnFromUid = async () => {
+    setLookupError("");
+    setLookupSuccess("");
+    const uid = form.freefireUid.trim();
+    if (!uid) {
+      setLookupError("Enter Free Fire UID first.");
+      return;
+    }
+
+    setIsFetchingIgn(true);
+    try {
+      const res = await fetch(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(lookupRegion)}`);
+      const body = await res.json();
+      if (!res.ok || !body?.ign) {
+        setLookupError(body?.message || "Could not fetch IGN for this UID.");
+        return;
+      }
+      setForm((prev) => ({ ...prev, ign: String(body.ign) }));
+      setLookupSuccess(`Fetched IGN: ${body.ign}`);
+    } catch {
+      setLookupError("Profile lookup failed. Please try again.");
+    } finally {
+      setIsFetchingIgn(false);
+    }
   };
 
   const handleSave = () => {
@@ -120,6 +152,27 @@ export default function Profile() {
             {editing && isOwnProfile && (
               <div className="border-t-2 border-black mt-3 pt-3 space-y-2">
                 <input type="text" value={form.freefireUid} onChange={e => setForm(f => ({ ...f, freefireUid: e.target.value }))} placeholder="Free Fire UID" className={inputCls} />
+                <div className="flex gap-2">
+                  <select
+                    value={lookupRegion}
+                    onChange={e => setLookupRegion(e.target.value)}
+                    className="px-2 py-2 bg-white border-2 border-black text-xs font-bold focus:outline-none focus:border-[#FF6B00]"
+                  >
+                    <option value="IND">IND</option>
+                    <option value="SG">SG</option>
+                    <option value="BR">BR</option>
+                  </select>
+                  <button
+                    type="button"
+                    onClick={fetchIgnFromUid}
+                    disabled={isFetchingIgn}
+                    className="btn-brutal px-3 py-2 bg-white text-black text-[10px] disabled:opacity-60"
+                  >
+                    {isFetchingIgn ? "FETCHING..." : "FETCH IGN FROM UID"}
+                  </button>
+                </div>
+                {lookupError && <p className="text-[10px] font-bold text-[#FF1E56]">{lookupError}</p>}
+                {lookupSuccess && <p className="text-[10px] font-bold text-[#00854B]">{lookupSuccess}</p>}
                 <input type="text" value={form.ign} onChange={e => setForm(f => ({ ...f, ign: e.target.value }))} placeholder="In-Game Name (IGN)" className={inputCls} />
                 <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))} className={inputCls}>
                   <option value="">Prefer not to say</option>
@@ -148,12 +201,12 @@ export default function Profile() {
             <div className="section-label mb-2">STATS</div>
             <div className="grid grid-cols-2 gap-2">
               {[
-                { label: "MATCHES", value: s.matchesPlayed, icon: Target, bg: "bg-black text-[#FFE600]" },
-                { label: "WINS", value: s.wins, icon: Trophy, bg: "bg-[#FF6B00] text-white" },
-                { label: "LOSSES", value: s.losses, icon: null, bg: "bg-[#FF1E56] text-white" },
-                { label: "WIN STREAK", value: s.winStreak, icon: Flame, bg: "bg-[#00854B] text-white" },
-              ].map(({ label, value, icon: Icon, bg }) => (
-                <div key={label} className={`card-brutal-sm p-3 flex items-center gap-2 ${bg}`}>
+                { label: "MATCHES", value: s.matchesPlayed, icon: Target, style: { backgroundColor: "#000000", color: "#FFE600" } },
+                { label: "WINS", value: s.wins, icon: Trophy, style: { backgroundColor: "#FF6B00", color: "#FFFFFF" } },
+                { label: "LOSSES", value: s.losses, icon: null, style: { backgroundColor: "#FF1E56", color: "#FFFFFF" } },
+                { label: "WIN STREAK", value: s.winStreak, icon: Flame, style: { backgroundColor: "#00854B", color: "#FFFFFF" } },
+              ].map(({ label, value, icon: Icon, style }) => (
+                <div key={label} className="card-brutal-sm p-3 flex items-center gap-2" style={style}>
                   {Icon && <Icon className="w-5 h-5 shrink-0" />}
                   <div>
                     <div className="display-font text-4xl leading-none">{value}</div>

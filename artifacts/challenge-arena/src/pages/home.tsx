@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useGetMe, useGetStatsOverview, useListChallenges, useListNotifications } from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
 import { Swords, Plus, Bell, ChevronRight, Trophy } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const [, navigate] = useLocation();
@@ -13,6 +14,32 @@ export default function Home() {
 
   const user = me.data;
   const unreadNotifs = notifications.data?.filter(n => !n.isRead) ?? [];
+  const [resolvedIgn, setResolvedIgn] = useState("");
+
+  useEffect(() => {
+    const uid = user?.freefireUid?.trim();
+    const region = "IND";
+    if (!uid || user?.ign) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`);
+        const body = await res.json();
+        if (!cancelled && res.ok && body?.ign) {
+          setResolvedIgn(String(body.ign));
+        }
+      } catch {
+        // Keep existing username fallback when lookup fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.freefireUid, user?.ign]);
+
+  const displayName = user?.ign || resolvedIgn || user?.username || "PLAYER";
 
   return (
     <Layout>
@@ -21,7 +48,7 @@ export default function Home() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
           <div className="tag-black inline-block mb-2">WELCOME BACK</div>
           <div className="display-font text-5xl text-black leading-none">
-            {user?.ign || user?.username || "PLAYER"}
+            {displayName}
           </div>
           {user?.freefireUid && (
             <div className="text-xs font-mono font-bold mt-1 text-gray-700">UID: {user.freefireUid}</div>
@@ -33,18 +60,20 @@ export default function Home() {
           <button
             onClick={() => navigate("/challenges/create")}
             className="card-brutal p-4 flex flex-col items-start bg-[#FF6B00] text-white hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
+            style={{ backgroundColor: "#FF6B00", color: "#FFFFFF" }}
           >
             <Plus className="w-7 h-7 mb-2" />
             <div className="font-black text-sm">CREATE CHALLENGE</div>
-            <div className="text-xs font-mono mt-0.5 text-white/70">SET RULES & INVITE</div>
+            <div className="text-xs font-mono mt-0.5" style={{ color: "rgba(255,255,255,0.85)" }}>SET RULES & INVITE</div>
           </button>
           <button
             onClick={() => navigate("/challenges")}
             className="card-brutal p-4 flex flex-col items-start bg-black text-[#FFE600] hover:translate-x-0.5 hover:translate-y-0.5 transition-transform"
+            style={{ backgroundColor: "#000000", color: "#FFE600" }}
           >
             <Swords className="w-7 h-7 mb-2" />
             <div className="font-black text-sm">JOIN MATCH</div>
-            <div className="text-xs font-mono mt-0.5 text-[#FFE600]/70">BROWSE OPEN MATCHES</div>
+            <div className="text-xs font-mono mt-0.5" style={{ color: "rgba(255,230,0,0.85)" }}>BROWSE OPEN MATCHES</div>
           </button>
         </div>
 
@@ -52,13 +81,13 @@ export default function Home() {
         {stats.data && (
           <div className="grid grid-cols-3 gap-2">
             {[
-              { label: "ACTIVE", value: stats.data.activeChallenges, bg: "bg-[#00854B] text-white" },
-              { label: "PLAYERS", value: stats.data.totalPlayers, bg: "bg-[#FF6B00] text-white" },
-              { label: "TODAY", value: stats.data.matchesToday, bg: "bg-[#FF1E56] text-white" },
-            ].map(({ label, value, bg }) => (
-              <div key={label} className={`card-brutal p-3 text-center ${bg}`}>
+              { label: "ACTIVE", value: stats.data.activeChallenges, style: { backgroundColor: "#00854B", color: "#FFFFFF" } },
+              { label: "PLAYERS", value: stats.data.totalPlayers, style: { backgroundColor: "#FF6B00", color: "#FFFFFF" } },
+              { label: "TODAY", value: stats.data.matchesToday, style: { backgroundColor: "#FF1E56", color: "#FFFFFF" } },
+            ].map(({ label, value, style }) => (
+              <div key={label} className="card-brutal p-3 text-center" style={style}>
                 <div className="display-font text-4xl">{value}</div>
-                <div className="text-[9px] font-black font-mono tracking-widest mt-0.5">{label}</div>
+                <div className="text-[9px] font-black font-mono tracking-widest mt-0.5" style={{ opacity: 0.9 }}>{label}</div>
               </div>
             ))}
           </div>
@@ -108,7 +137,7 @@ export default function Home() {
           ) : challenges.data?.length === 0 ? (
             <div className="card-brutal p-8 text-center">
               <Swords className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <p className="font-bold text-sm text-gray-600">No active challenges yet.</p>
+              <p className="font-bold text-sm text-black">No active challenges yet.</p>
               <button
                 onClick={() => navigate("/challenges/create")}
                 className="btn-brutal mt-3 px-5 py-2 bg-[#FF6B00] text-white text-xs"
@@ -148,6 +177,7 @@ export default function Home() {
           <button
             onClick={() => navigate("/leaderboard")}
             className="card-brutal-sm flex items-center gap-2 p-3 bg-white hover:bg-[#FFE600]/30 transition-colors"
+            style={{ color: "#000" }}
           >
             <Trophy className="w-5 h-5 text-[#FF6B00]" />
             <span className="font-black text-sm">LEADERBOARD</span>
@@ -155,6 +185,7 @@ export default function Home() {
           <button
             onClick={() => navigate("/profile/me")}
             className="card-brutal-sm flex items-center gap-2 p-3 bg-white hover:bg-[#FFE600]/30 transition-colors"
+            style={{ color: "#000" }}
           >
             <Swords className="w-5 h-5 text-[#FF6B00]" />
             <span className="font-black text-sm">MY STATS</span>

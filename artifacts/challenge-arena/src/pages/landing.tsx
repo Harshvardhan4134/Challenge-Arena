@@ -149,18 +149,18 @@ export default function Landing() {
       {/* Features */}
       <section className="py-16 px-4 border-b-4 border-black">
         <div className="max-w-5xl mx-auto">
-          <div className="tag-black inline-block mb-4">FEATURES</div>
-          <h2 className="display-font text-5xl sm:text-6xl mb-10">BUILT FOR SERIOUS PLAYERS</h2>
+          <div className="tag-black inline-block mb-4 text-[#FFE600]">FEATURES</div>
+          <h2 className="display-font text-5xl sm:text-6xl mb-10 text-black [text-shadow:2px_2px_0_#fff]">BUILT FOR SERIOUS PLAYERS</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {[
-              { icon: Swords, label: "1v1 / 2v2 / 4v4 MODES", color: "bg-[#FF6B00]" },
-              { icon: Zap, label: "LEADER CHAT & ROOM SHARE", color: "bg-black" },
-              { icon: Trophy, label: "WEEKLY LEADERBOARD", color: "bg-[#00854B]" },
-              { icon: Users, label: "CUSTOM RULE PRESETS", color: "bg-[#FF1E56]" },
-              { icon: Swords, label: "MATCH RESULT SYSTEM", color: "bg-[#FF6B00]" },
-              { icon: Zap, label: "INSTANT NOTIFICATIONS", color: "bg-black" },
-            ].map(({ icon: Icon, label, color }) => (
-              <div key={label} className={`card-brutal p-4 ${color} text-white`}>
+              { icon: Swords, label: "1v1 / 2v2 / 4v4 MODES", bg: "#FF6B00", fg: "#fff" },
+              { icon: Zap, label: "LEADER CHAT & ROOM SHARE", bg: "#000000", fg: "#fff" },
+              { icon: Trophy, label: "WEEKLY LEADERBOARD", bg: "#00854B", fg: "#fff" },
+              { icon: Users, label: "CUSTOM RULE PRESETS", bg: "#FF1E56", fg: "#fff" },
+              { icon: Swords, label: "MATCH RESULT SYSTEM", bg: "#FF6B00", fg: "#fff" },
+              { icon: Zap, label: "INSTANT NOTIFICATIONS", bg: "#000000", fg: "#fff" },
+            ].map(({ icon: Icon, label, bg, fg }) => (
+              <div key={label} className="card-brutal p-4" style={{ backgroundColor: bg, color: fg }}>
                 <Icon className="w-6 h-6 mb-2" />
                 <div className="font-black text-xs tracking-wide">{label}</div>
               </div>
@@ -187,6 +187,20 @@ export default function Landing() {
         <div className="display-font text-base tracking-widest text-black flex items-center justify-center gap-2">
           <Swords className="w-4 h-4" />
           CHALLENGE ARENA — GARENA FREE FIRE MATCHMAKING
+        </div>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs font-bold">
+          <button onClick={() => navigate("/privacy-policy")} className="underline">Privacy Policy</button>
+          <span>|</span>
+          <button onClick={() => navigate("/terms-and-conditions")} className="underline">Terms & Conditions</button>
+        </div>
+        <div className="mt-3 text-xs font-mono">
+          Support: <a href="mailto:support@lendlly.in" className="underline font-bold">support@lendlly.in</a>
+        </div>
+        <div className="text-xs font-mono">
+          Ads & collaboration: <a href="mailto:harsh@lendlly.in" className="underline font-bold">harsh@lendlly.in</a>
+        </div>
+        <div className="mt-2 text-[11px] font-bold">
+          Challenge Arena is not a betting or gambling platform.
         </div>
       </footer>
     </div>

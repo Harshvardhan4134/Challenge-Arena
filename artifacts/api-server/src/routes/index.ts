@@ -7,6 +7,7 @@ import chatRouter from "./chat";
 import notificationsRouter from "./notifications";
 import leaderboardRouter from "./leaderboard";
 import statsRouter from "./stats";
+import freefireRouter from "./freefire";
 
 const router: IRouter = Router();
 
@@ -17,6 +18,7 @@ router.use("/challenges", challengesRouter);
 router.use("/challenges", chatRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/leaderboard", leaderboardRouter);
+router.use("/freefire", freefireRouter);
 router.use("/", statsRouter);
 
 export default router;

@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { setAuthTokenGetter } from "@workspace/api-client-react";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 
 export function getAuthToken() {
   return localStorage.getItem("auth_token");
@@ -14,4 +13,5 @@ export function clearAuthToken() {
 }
 
 // Setup the auth token getter for the API client
+setBaseUrl(import.meta.env.VITE_API_BASE_URL ?? null);
 setAuthTokenGetter(() => getAuthToken());

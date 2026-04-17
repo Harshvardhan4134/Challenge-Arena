@@ -1,14 +1,5 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import {
-  challengesTable,
-  teamsTable,
-  teamMembersTable,
-  usersTable,
-  notificationsTable,
-  playerStatsTable,
-} from "@workspace/db";
-import { eq, and, ne, inArray } from "drizzle-orm";
+import crypto from "crypto";
 import {
   CreateChallengeBody,
   JoinChallengeBody,
@@ -16,33 +7,75 @@ import {
   ShareRoomDetailsBody,
 } from "@workspace/api-zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
+import {
+  collections,
+  nowIso,
+  type ChallengeDoc,
+  type MatchResultDoc,
+  type NotificationDoc,
+  type PlayerStatsDoc,
+  type TeamDoc,
+  type TeamMemberDoc,
+  type UserDoc,
+} from "../lib/firestore-db";
 
 const router = Router();
 
 const MODE_SIZE: Record<string, number> = { "1v1": 1, "2v2": 2, "4v4": 4 };
+const RULE_ALLOWLIST = new Set([
+  "headshot_only",
+  "no_gloo_wall",
+  "no_revive",
+  "no_spray",
+  "sniper_only",
+]);
+const CHALLENGE_TTL_MS = 2 * 60 * 60 * 1000;
+const RESULT_TIMEOUT_MS = 20 * 60 * 1000;
 
-async function buildChallengeResponse(challenge: typeof challengesTable.$inferSelect) {
-  const teamA = await db.select().from(teamsTable).where(eq(teamsTable.id, challenge.teamAId)).limit(1);
-  const teamAMembers = await db.select().from(teamMembersTable)
-    .where(eq(teamMembersTable.teamId, challenge.teamAId));
+async function getTeamMembers(teamId: string): Promise<TeamMemberDoc[]> {
+  const snap = await collections.teamMembers.where("teamId", "==", teamId).get();
+  return snap.docs.map((d) => d.data() as TeamMemberDoc);
+}
 
+async function getUser(userId: string): Promise<UserDoc | null> {
+  const doc = await collections.users.doc(userId).get();
+  return doc.exists ? (doc.data() as UserDoc) : null;
+}
+
+async function upsertStats(userId: string, patch: Partial<PlayerStatsDoc>) {
+  const statsDoc = await collections.playerStats.doc(userId).get();
+  const current: PlayerStatsDoc = statsDoc.exists
+    ? (statsDoc.data() as PlayerStatsDoc)
+    : { userId, matchesPlayed: 0, wins: 0, losses: 0, winStreak: 0, weeklyWins: 0, weeklyReset: nowIso() };
+  await collections.playerStats.doc(userId).set({ ...current, ...patch }, { merge: true });
+}
+
+async function buildChallengeResponse(challenge: ChallengeDoc) {
+  const teamADoc = await collections.teams.doc(challenge.teamAId).get();
+  const teamA = teamADoc.exists ? (teamADoc.data() as TeamDoc) : null;
+  const teamAMembers = await getTeamMembers(challenge.teamAId);
   const teamAMembersWithUsernames = await Promise.all(teamAMembers.map(async (m) => {
-    const [u] = await db.select().from(usersTable).where(eq(usersTable.id, m.userId)).limit(1);
-    return { userId: m.userId, username: u?.username || "", ign: u?.ign || null, isLeader: m.isLeader, joinedAt: m.joinedAt.toISOString() };
+    const u = await getUser(m.userId);
+    return { userId: m.userId, username: u?.username || "", ign: u?.ign || null, isLeader: m.isLeader, joinedAt: m.joinedAt };
   }));
 
   const maxSize = MODE_SIZE[challenge.mode] || 1;
 
   let teamBData = null;
+  const now = Date.now();
+  const scheduledAtMs = challenge.scheduledAt.getTime();
+  const isExpired = ["open", "full", "in_progress"].includes(challenge.status) &&
+    now > scheduledAtMs + CHALLENGE_TTL_MS;
   if (challenge.teamBId) {
-    const teamB = await db.select().from(teamsTable).where(eq(teamsTable.id, challenge.teamBId)).limit(1);
-    const teamBMembers = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, challenge.teamBId));
+    const teamBDoc = await collections.teams.doc(challenge.teamBId).get();
+    const teamB = teamBDoc.exists ? (teamBDoc.data() as TeamDoc) : null;
+    const teamBMembers = await getTeamMembers(challenge.teamBId);
     const teamBMembersWithUsernames = await Promise.all(teamBMembers.map(async (m) => {
-      const [u] = await db.select().from(usersTable).where(eq(usersTable.id, m.userId)).limit(1);
-      return { userId: m.userId, username: u?.username || "", ign: u?.ign || null, isLeader: m.isLeader, joinedAt: m.joinedAt.toISOString() };
+      const u = await getUser(m.userId);
+      return { userId: m.userId, username: u?.username || "", ign: u?.ign || null, isLeader: m.isLeader, joinedAt: m.joinedAt };
     }));
-    if (teamB[0]) {
-      teamBData = { id: teamB[0].id, name: teamB[0].name, leaderId: teamB[0].leaderId, players: teamBMembersWithUsernames, maxSize };
+    if (teamB) {
+      teamBData = { id: teamB.id, name: teamB.name, leaderId: teamB.leaderId, players: teamBMembersWithUsernames, maxSize };
     }
   }
 
@@ -50,23 +83,35 @@ async function buildChallengeResponse(challenge: typeof challengesTable.$inferSe
     id: challenge.id,
     title: challenge.title,
     mode: challenge.mode,
-    scheduledAt: challenge.scheduledAt.toISOString(),
+    scheduledAt: challenge.scheduledAt,
     rules: challenge.rules || [],
     customRule: challenge.customRule,
     status: challenge.status,
-    teamA: teamA[0] ? { id: teamA[0].id, name: teamA[0].name, leaderId: teamA[0].leaderId, players: teamAMembersWithUsernames, maxSize } : null,
+    teamA: teamA ? { id: teamA.id, name: teamA.name, leaderId: teamA.leaderId, players: teamAMembersWithUsernames, maxSize } : null,
     teamB: teamBData,
     roomId: challenge.roomId,
     roomPassword: challenge.roomPassword,
-    createdAt: challenge.createdAt.toISOString(),
+    createdAt: challenge.createdAt,
     creatorId: challenge.creatorId,
     winnerId: challenge.winnerId,
+    isExpired,
+    discoveryState: isExpired
+      ? "expired"
+      : challenge.status === "full"
+        ? "full"
+        : (() => {
+            const hasTeamB = Boolean(teamBData);
+            const teamASlots = maxSize - teamAMembersWithUsernames.length;
+            const teamBSlots = hasTeamB ? maxSize - (teamBData?.players.length ?? 0) : maxSize;
+            const totalOpenSlots = teamASlots + teamBSlots;
+            return totalOpenSlots <= 1 ? "almost_full" : "open";
+          })(),
   };
 }
 
 router.get("/", async (req, res) => {
-  const { mode, status, hasSlots } = req.query;
-  let challenges = await db.select().from(challengesTable);
+  const { mode, status, hasSlots, state } = req.query;
+  let challenges = (await collections.challenges.get()).docs.map((d) => d.data() as ChallengeDoc);
 
   if (mode) challenges = challenges.filter(c => c.mode === mode);
   if (status) challenges = challenges.filter(c => c.status === status);
@@ -81,6 +126,9 @@ router.get("/", async (req, res) => {
       return c.teamA && c.teamA.players.length < maxSize;
     });
   }
+  if (state) {
+    filtered = filtered.filter((c) => c.discoveryState === state);
+  }
 
   return res.status(200).json(filtered);
 });
@@ -91,38 +139,75 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 
   const { title, mode, scheduledAt, rules, customRule, teamName } = parsed.data;
   const userId = req.userId!;
+  const parsedScheduledAt = new Date(scheduledAt);
+  if (Number.isNaN(parsedScheduledAt.getTime())) {
+    return res.status(400).json({ error: "validation", message: "Invalid scheduledAt date" });
+  }
+  const minLeadMs = 2 * 60 * 1000;
+  const maxFutureMs = 14 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const scheduleDelta = parsedScheduledAt.getTime() - now;
+  if (scheduleDelta < minLeadMs || scheduleDelta > maxFutureMs) {
+    return res.status(400).json({ error: "validation", message: "Challenge time must be 2 minutes to 14 days from now" });
+  }
+  const normalizedRules = (rules || []).filter((r) => RULE_ALLOWLIST.has(r));
+  if ((rules || []).length !== normalizedRules.length) {
+    return res.status(400).json({ error: "validation", message: "One or more rules are invalid" });
+  }
+  if ((customRule ?? "").trim().length > 280) {
+    return res.status(400).json({ error: "validation", message: "Custom rule must be 280 characters or less" });
+  }
 
-  const [team] = await db.insert(teamsTable).values({ name: teamName, leaderId: userId }).returning();
-  await db.insert(teamMembersTable).values({ teamId: team.id, userId, isLeader: true });
+  const teamId = crypto.randomUUID();
+  const team: TeamDoc = { id: teamId, name: teamName, leaderId: userId, createdAt: nowIso() };
+  await collections.teams.doc(teamId).set(team);
+  const memberId = crypto.randomUUID();
+  await collections.teamMembers.doc(memberId).set({
+    id: memberId,
+    teamId,
+    userId,
+    isLeader: true,
+    joinedAt: nowIso(),
+  } satisfies TeamMemberDoc);
 
-  const [challenge] = await db.insert(challengesTable).values({
+  const challengeId = crypto.randomUUID();
+  const challenge: ChallengeDoc = {
+    id: challengeId,
     title,
     mode: mode as "1v1" | "2v2" | "4v4",
-    scheduledAt: new Date(scheduledAt),
-    rules: rules || [],
-    customRule: customRule ?? null,
-    teamAId: team.id,
+    scheduledAt: parsedScheduledAt.toISOString(),
+    rules: normalizedRules,
+    customRule: customRule?.trim() ? customRule.trim() : null,
+    teamAId: teamId,
     creatorId: userId,
     status: "open",
-  }).returning();
+    teamBId: null,
+    roomId: null,
+    roomPassword: null,
+    winnerId: null,
+    createdAt: nowIso(),
+  };
+  await collections.challenges.doc(challengeId).set(challenge);
 
   return res.status(201).json(await buildChallengeResponse(challenge));
 });
 
 router.get("/:challengeId", async (req, res) => {
   const { challengeId } = req.params;
-  const [challenge] = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
-  if (!challenge) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
   return res.status(200).json(await buildChallengeResponse(challenge));
 });
 
 router.delete("/:challengeId", requireAuth, async (req: AuthRequest, res) => {
   const { challengeId } = req.params;
-  const [challenge] = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
-  if (!challenge) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
   if (challenge.creatorId !== req.userId) return res.status(403).json({ error: "forbidden", message: "Not the creator" });
 
-  await db.update(challengesTable).set({ status: "cancelled" }).where(eq(challengesTable.id, challengeId));
+  await collections.challenges.doc(challengeId).set({ status: "cancelled" }, { merge: true });
   return res.status(200).json({ success: true, message: "Challenge cancelled" });
 });
 
@@ -134,73 +219,87 @@ router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => 
   const { side, teamName } = parsed.data;
   const userId = req.userId!;
 
-  const [challenge] = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
-  if (!challenge) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
+  if (Date.now() > new Date(challenge.scheduledAt).getTime() + CHALLENGE_TTL_MS) {
+    return res.status(400).json({ error: "expired", message: "Challenge has expired" });
+  }
   if (challenge.status !== "open") return res.status(400).json({ error: "closed", message: "Challenge is not open" });
 
   const maxSize = MODE_SIZE[challenge.mode] || 1;
 
   if (side === "teamA") {
-    const members = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, challenge.teamAId));
+    const members = await getTeamMembers(challenge.teamAId);
     if (members.length >= maxSize) return res.status(400).json({ error: "full", message: "Team A is full" });
     const alreadyIn = members.some(m => m.userId === userId);
     if (alreadyIn) return res.status(400).json({ error: "duplicate", message: "Already in team A" });
-    await db.insert(teamMembersTable).values({ teamId: challenge.teamAId, userId, isLeader: false });
+    const id = crypto.randomUUID();
+    await collections.teamMembers.doc(id).set({ id, teamId: challenge.teamAId, userId, isLeader: false, joinedAt: nowIso() } satisfies TeamMemberDoc);
   } else {
     if (!challenge.teamBId) {
       const resolvedTeamName = teamName?.trim() || "Challengers";
-      const [newTeamB] = await db.insert(teamsTable).values({ name: resolvedTeamName, leaderId: userId }).returning();
-      await db.insert(teamMembersTable).values({ teamId: newTeamB.id, userId, isLeader: true });
-      await db.update(challengesTable).set({ teamBId: newTeamB.id }).where(eq(challengesTable.id, challengeId));
+      const newTeamBId = crypto.randomUUID();
+      await collections.teams.doc(newTeamBId).set({ id: newTeamBId, name: resolvedTeamName, leaderId: userId, createdAt: nowIso() } satisfies TeamDoc);
+      const memberIdB = crypto.randomUUID();
+      await collections.teamMembers.doc(memberIdB).set({ id: memberIdB, teamId: newTeamBId, userId, isLeader: true, joinedAt: nowIso() } satisfies TeamMemberDoc);
+      challenge.teamBId = newTeamBId;
+      await collections.challenges.doc(challengeId).set({ teamBId: newTeamBId }, { merge: true });
     } else {
-      const members = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, challenge.teamBId));
+      const members = await getTeamMembers(challenge.teamBId);
       if (members.length >= maxSize) return res.status(400).json({ error: "full", message: "Team B is full" });
       const alreadyIn = members.some(m => m.userId === userId);
       if (alreadyIn) return res.status(400).json({ error: "duplicate", message: "Already in team B" });
-      await db.insert(teamMembersTable).values({ teamId: challenge.teamBId, userId, isLeader: false });
+      const id = crypto.randomUUID();
+      await collections.teamMembers.doc(id).set({ id, teamId: challenge.teamBId, userId, isLeader: false, joinedAt: nowIso() } satisfies TeamMemberDoc);
     }
   }
 
-  const refreshed = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
-  const teamAMembers = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, challenge.teamAId));
-  const teamBId = refreshed[0].teamBId;
-  const teamBMembers = teamBId ? await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, teamBId)) : [];
+  const refreshedDoc = await collections.challenges.doc(challengeId).get();
+  const refreshed = refreshedDoc.data() as ChallengeDoc;
+  const teamAMembers = await getTeamMembers(challenge.teamAId);
+  const teamBId = refreshed.teamBId;
+  const teamBMembers = teamBId ? await getTeamMembers(teamBId) : [];
 
   const totalA = teamAMembers.length;
   const totalB = teamBMembers.length;
   let newStatus: "open" | "full" = "open";
   if (totalA >= maxSize && totalB >= maxSize) newStatus = "full";
-  await db.update(challengesTable).set({ status: newStatus }).where(eq(challengesTable.id, challengeId));
+  await collections.challenges.doc(challengeId).set({ status: newStatus }, { merge: true });
 
-  const teamALeaderId = (await db.select().from(teamsTable).where(eq(teamsTable.id, challenge.teamAId)).limit(1))[0]?.leaderId;
+  const teamALeaderDoc = await collections.teams.doc(challenge.teamAId).get();
+  const teamALeaderId = teamALeaderDoc.exists ? (teamALeaderDoc.data() as TeamDoc).leaderId : null;
   if (teamALeaderId) {
-    await db.insert(notificationsTable).values({
+    const notification: NotificationDoc = {
+      id: crypto.randomUUID(),
       userId: teamALeaderId,
       type: "player_joined",
       title: "Player Joined",
       message: "A new player joined your challenge",
       challengeId,
-    });
+      isRead: false,
+      createdAt: nowIso(),
+    };
+    await collections.notifications.doc(notification.id).set(notification);
   }
 
-  const final = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
-  return res.status(200).json(await buildChallengeResponse(final[0]));
+  const finalDoc = await collections.challenges.doc(challengeId).get();
+  return res.status(200).json(await buildChallengeResponse(finalDoc.data() as ChallengeDoc));
 });
 
 router.post("/:challengeId/leave", requireAuth, async (req: AuthRequest, res) => {
   const { challengeId } = req.params;
   const userId = req.userId!;
 
-  const [challenge] = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
-  if (!challenge) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
 
   const teamIds = [challenge.teamAId, challenge.teamBId].filter(Boolean) as string[];
   for (const teamId of teamIds) {
-    const member = await db.select().from(teamMembersTable)
-      .where(and(eq(teamMembersTable.teamId, teamId), eq(teamMembersTable.userId, userId))).limit(1);
-    if (member.length > 0) {
-      await db.delete(teamMembersTable)
-        .where(and(eq(teamMembersTable.teamId, teamId), eq(teamMembersTable.userId, userId)));
+    const memberSnap = await collections.teamMembers.where("teamId", "==", teamId).where("userId", "==", userId).limit(1).get();
+    if (!memberSnap.empty) {
+      await memberSnap.docs[0].ref.delete();
       break;
     }
   }
@@ -216,52 +315,96 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
   const { winningSide, screenshotUrl } = parsed.data;
   const userId = req.userId!;
 
-  const [challenge] = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
-  if (!challenge) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
+  if (!challenge.teamBId) return res.status(400).json({ error: "invalid_state", message: "Challenge does not have two teams yet" });
 
-  const { matchResultsTable } = await import("@workspace/db");
-  const existing = await db.select().from(matchResultsTable).where(eq(matchResultsTable.challengeId, challengeId));
+  const teamIds = [challenge.teamAId, challenge.teamBId].filter(Boolean) as string[];
+  const membersSnap = await collections.teamMembers.get();
+  const members = membersSnap.docs.map((d) => d.data() as TeamMemberDoc).filter((m) => teamIds.includes(m.teamId));
+  const submitter = members.find((m) => m.userId === userId);
+  if (!submitter) return res.status(403).json({ error: "forbidden", message: "Only participants can submit results" });
+
+  const existingSnap = await collections.matchResults.where("challengeId", "==", challengeId).limit(1).get();
+  const existing = existingSnap.empty ? [] : [existingSnap.docs[0].data() as MatchResultDoc];
 
   if (existing.length > 0) {
     const prev = existing[0];
+    const isTimedOut = prev.status === "pending" && (Date.now() - prev.createdAt.getTime()) > RESULT_TIMEOUT_MS;
+    if (isTimedOut) {
+      await collections.matchResults.doc(prev.id).set({ status: "disputed" }, { merge: true });
+      await collections.challenges.doc(challengeId).set({ status: "disputed" }, { merge: true });
+    }
     if (prev.winningSide === winningSide) {
-      await db.update(matchResultsTable).set({ status: "confirmed" }).where(eq(matchResultsTable.challengeId, challengeId));
+      await collections.matchResults.doc(prev.id).set({ status: "confirmed" }, { merge: true });
       const winnerTeamId = winningSide === "teamA" ? challenge.teamAId : challenge.teamBId;
       const loserTeamId = winningSide === "teamA" ? challenge.teamBId : challenge.teamAId;
       if (winnerTeamId) {
-        const winnerMembers = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, winnerTeamId));
+        const winnerMembers = await getTeamMembers(winnerTeamId);
         for (const m of winnerMembers) {
-          await db.update(playerStatsTable)
-            .set({ wins: (await db.select().from(playerStatsTable).where(eq(playerStatsTable.userId, m.userId)).limit(1))[0]?.wins + 1 || 1, matchesPlayed: (await db.select().from(playerStatsTable).where(eq(playerStatsTable.userId, m.userId)).limit(1))[0]?.matchesPlayed + 1 || 1, weeklyWins: (await db.select().from(playerStatsTable).where(eq(playerStatsTable.userId, m.userId)).limit(1))[0]?.weeklyWins + 1 || 1 })
-            .where(eq(playerStatsTable.userId, m.userId));
+          const statsDoc = await collections.playerStats.doc(m.userId).get();
+          const existingStats = statsDoc.exists ? (statsDoc.data() as PlayerStatsDoc) : { userId: m.userId, matchesPlayed: 0, wins: 0, losses: 0, winStreak: 0, weeklyWins: 0, weeklyReset: nowIso() };
+          await upsertStats(m.userId, {
+            wins: (existingStats.wins ?? 0) + 1,
+            matchesPlayed: (existingStats.matchesPlayed ?? 0) + 1,
+            weeklyWins: (existingStats.weeklyWins ?? 0) + 1,
+            winStreak: (existingStats.winStreak ?? 0) + 1,
+          });
         }
       }
       if (loserTeamId) {
-        const loserMembers = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, loserTeamId));
+        const loserMembers = await getTeamMembers(loserTeamId);
         for (const m of loserMembers) {
-          await db.update(playerStatsTable)
-            .set({ losses: (await db.select().from(playerStatsTable).where(eq(playerStatsTable.userId, m.userId)).limit(1))[0]?.losses + 1 || 1, matchesPlayed: (await db.select().from(playerStatsTable).where(eq(playerStatsTable.userId, m.userId)).limit(1))[0]?.matchesPlayed + 1 || 1 })
-            .where(eq(playerStatsTable.userId, m.userId));
+          const statsDoc = await collections.playerStats.doc(m.userId).get();
+          const existingStats = statsDoc.exists ? (statsDoc.data() as PlayerStatsDoc) : { userId: m.userId, matchesPlayed: 0, wins: 0, losses: 0, winStreak: 0, weeklyWins: 0, weeklyReset: nowIso() };
+          await upsertStats(m.userId, {
+            losses: (existingStats.losses ?? 0) + 1,
+            matchesPlayed: (existingStats.matchesPlayed ?? 0) + 1,
+            winStreak: 0,
+          });
         }
       }
-      await db.update(challengesTable).set({ status: "completed", winnerId: challenge[winningSide === "teamA" ? "teamAId" : "teamBId"] as unknown as string }).where(eq(challengesTable.id, challengeId));
+      await collections.challenges.doc(challengeId).set({ status: "completed", winnerId: challenge[winningSide === "teamA" ? "teamAId" : "teamBId"] as string }, { merge: true });
     } else {
-      await db.update(matchResultsTable).set({ status: "disputed" }).where(eq(matchResultsTable.challengeId, challengeId));
-      await db.update(challengesTable).set({ status: "disputed" }).where(eq(challengesTable.id, challengeId));
+      await collections.matchResults.doc(prev.id).set({ status: "disputed" }, { merge: true });
+      await collections.challenges.doc(challengeId).set({ status: "disputed" }, { merge: true });
     }
-    const [result] = await db.select().from(matchResultsTable).where(eq(matchResultsTable.challengeId, challengeId)).limit(1);
-    return res.status(200).json({ ...result, createdAt: result.createdAt.toISOString() });
+    const resultDoc = await collections.matchResults.doc(prev.id).get();
+    return res.status(200).json(resultDoc.data() as MatchResultDoc);
   }
 
-  const [result] = await db.insert(matchResultsTable).values({
+  const result: MatchResultDoc = {
+    id: crypto.randomUUID(),
     challengeId,
     submittedBy: userId,
     winningSide: winningSide as "teamA" | "teamB",
     screenshotUrl: screenshotUrl ?? null,
     status: "pending",
-  }).returning();
+    createdAt: nowIso(),
+  };
+  await collections.matchResults.doc(result.id).set(result);
 
-  return res.status(200).json({ ...result, createdAt: result.createdAt.toISOString() });
+  const opponentTeamId = submitter.teamId === challenge.teamAId ? challenge.teamBId : challenge.teamAId;
+  if (opponentTeamId) {
+    const opponentTeamDoc = await collections.teams.doc(opponentTeamId).get();
+    const opponentTeam = opponentTeamDoc.exists ? (opponentTeamDoc.data() as TeamDoc) : null;
+    if (opponentTeam?.leaderId) {
+      const notification: NotificationDoc = {
+        id: crypto.randomUUID(),
+        userId: opponentTeam.leaderId,
+        type: "match_result",
+        title: "Result submitted",
+        message: "Opponent submitted result. Confirm or dispute within 20 minutes.",
+        challengeId,
+        isRead: false,
+        createdAt: nowIso(),
+      };
+      await collections.notifications.doc(notification.id).set(notification);
+    }
+  }
+
+  return res.status(200).json(result);
 });
 
 router.post("/:challengeId/room", requireAuth, async (req: AuthRequest, res) => {
@@ -272,26 +415,32 @@ router.post("/:challengeId/room", requireAuth, async (req: AuthRequest, res) => 
   const { roomId, roomPassword } = parsed.data;
   const userId = req.userId!;
 
-  const [challenge] = await db.select().from(challengesTable).where(eq(challengesTable.id, challengeId)).limit(1);
-  if (!challenge) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
 
-  const [teamA] = await db.select().from(teamsTable).where(eq(teamsTable.id, challenge.teamAId)).limit(1);
+  const teamADoc = await collections.teams.doc(challenge.teamAId).get();
+  const teamA = teamADoc.exists ? (teamADoc.data() as TeamDoc) : null;
   if (!teamA || teamA.leaderId !== userId) return res.status(403).json({ error: "forbidden", message: "Only Team A leader can share room details" });
 
-  await db.update(challengesTable).set({ roomId, roomPassword, status: "in_progress" }).where(eq(challengesTable.id, challengeId));
+  await collections.challenges.doc(challengeId).set({ roomId, roomPassword, status: "in_progress" }, { merge: true });
 
   const teamIds = [challenge.teamAId, challenge.teamBId].filter(Boolean) as string[];
   for (const teamId of teamIds) {
-    const members = await db.select().from(teamMembersTable).where(eq(teamMembersTable.teamId, teamId));
+    const members = await getTeamMembers(teamId);
     for (const m of members) {
       if (m.userId !== userId) {
-        await db.insert(notificationsTable).values({
+        const notification: NotificationDoc = {
+          id: crypto.randomUUID(),
           userId: m.userId,
           type: "match_starting",
           title: "Match Starting!",
           message: `Room is ready! Room ID: ${roomId}`,
           challengeId,
-        });
+          isRead: false,
+          createdAt: nowIso(),
+        };
+        await collections.notifications.doc(notification.id).set(notification);
       }
     }
   }
