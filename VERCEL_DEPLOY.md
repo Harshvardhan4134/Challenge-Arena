@@ -57,3 +57,25 @@ Without this, Google OAuth may still open (Firebase), but the step that exchange
 ### Firebase “authorized domain”
 
 Adding `challenge-arena-server.vercel.app` under Authorized domains is correct for the **Firebase client** popup. It does **not** create `/api` routes on Vercel — you still need a separate backend URL as above.
+
+---
+
+## Render deployment (API backend)
+
+Create a **Web Service** from this repo. **Root Directory:** leave empty (repo root).
+
+**Do not** use root `pnpm run build` on Render: it runs the full monorepo TypeScript check and can fail before the API bundle is produced.
+
+Use these commands instead:
+
+- **Build Command:**  
+  `pnpm install --frozen-lockfile && pnpm run build:api-server`  
+  (equivalent: `pnpm install --frozen-lockfile && pnpm --filter @workspace/api-server run build`)
+
+- **Start Command:**  
+  `pnpm --filter @workspace/api-server run start`
+
+**Environment variables:** backend only (`FIREBASE_*`, `FREEFIRE_LOOKUP_*`, `NODE_ENV=production`).  
+Do **not** put `VITE_*` on Render — those belong on Vercel for the frontend.
+
+After deploy, set **Vercel** `VITE_API_BASE_URL` to your Render URL (e.g. `https://challenge-arena.onrender.com`) and redeploy the frontend.
