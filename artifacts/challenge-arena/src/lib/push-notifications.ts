@@ -29,8 +29,12 @@ export async function registerWebPushForUser(): Promise<void> {
 
     const keyRes = await fetch(apiUrl("/api/notifications/push/vapid-public-key"));
     if (!keyRes.ok) return;
-    const { publicKey } = (await keyRes.json()) as { publicKey?: string };
-    if (!publicKey) return;
+    const body = (await keyRes.json().catch(() => ({}))) as {
+      publicKey?: string | null;
+      configured?: boolean;
+    };
+    if (body.configured === false || !body.publicKey?.trim()) return;
+    const publicKey = body.publicKey.trim();
 
     const perm = await Notification.requestPermission();
     sessionStorage.setItem("ca_push_attempted", "1");
@@ -38,7 +42,7 @@ export async function registerWebPushForUser(): Promise<void> {
 
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
+      applicationServerKey: urlBase64ToUint8Array(publicKey) as BufferSource,
     });
 
     const json = sub.toJSON();

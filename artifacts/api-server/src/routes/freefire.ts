@@ -102,6 +102,16 @@ async function fetchFromFreeFireCommunity(uid: string, region: string): Promise<
   return { ign: extractIgn(data), level: extractLevel(data), raw: data, provider: "freefirecommunity" };
 }
 
+async function fetchLegacyPublic(uid: string, region: string): Promise<LookupResult | null> {
+  const legacyUrl = `https://info-ob49.vercel.app/api/account/?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`;
+  const legacyRes = await fetchWithTimeout(legacyUrl, { headers: { accept: "application/json" } });
+  if (!legacyRes.ok) return null;
+  const legacyData = await legacyRes.json();
+  const ign = extractIgn(legacyData);
+  if (!ign) return null;
+  return { ign, level: extractLevel(legacyData), raw: legacyData, provider: "legacy-public-provider" };
+}
+
 async function fetchFromPublicRepoProvider(uid: string, region: string): Promise<LookupResult> {
   // Public mirrors can be swapped without code changes.
   const configuredMirrors = String(process.env["FREEFIRE_LOOKUP_PUBLIC_MIRRORS"] ?? "")
@@ -109,7 +119,7 @@ async function fetchFromPublicRepoProvider(uid: string, region: string): Promise
     .map((x) => x.trim())
     .filter(Boolean);
   const defaultMirror = process.env["FREEFIRE_LOOKUP_PUBLIC_BASE_URL"] ?? "https://freefireinfo-zy9l.onrender.com";
-  const mirrors = [...configuredMirrors, defaultMirror];
+  const mirrors = [...new Set([...configuredMirrors, defaultMirror])];
 
   let lastError: Error | null = null;
   for (const mirror of mirrors) {
@@ -117,6 +127,10 @@ async function fetchFromPublicRepoProvider(uid: string, region: string): Promise
     const candidates = [
       `${base}/api/v1/account?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
       `${base}/api/v1/player-profile?uid=${encodeURIComponent(uid)}&server=${encodeURIComponent(region)}`,
+      `${base}/api/v1/info?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
+      `${base}/api/account?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
+      `${base}/api/player?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
+      `${base}/player?uid=${encodeURIComponent(uid)}`,
       `${base}/info?uid=${encodeURIComponent(uid)}`,
     ];
 
@@ -151,7 +165,17 @@ router.get("/profile", async (req, res) => {
     return res.status(200).json({ uid, region, ign: cached.ign, level: cached.level, provider: `${cached.provider} (cache)` });
   }
 
-  // Best default for MVP: free repo endpoint first, paid provider second, legacy fallback third.
+  // Try stable legacy host first (many Render mirrors return 404 on /info).
+  try {
+    const legacyFirst = await fetchLegacyPublic(uid, region);
+    if (legacyFirst?.ign) {
+      setCachedResult(uid, region, legacyFirst);
+      return res.status(200).json({ uid, region, ign: legacyFirst.ign, level: legacyFirst.level, provider: legacyFirst.provider });
+    }
+  } catch {
+    // continue to mirrors
+  }
+
   try {
     const result = await withRetry(() => fetchFromPublicRepoProvider(uid, region));
     if (!result.ign) {
@@ -167,23 +191,6 @@ router.get("/profile", async (req, res) => {
         if (paidFallback.ign) {
           setCachedResult(uid, region, paidFallback);
           return res.status(200).json({ uid, region, ign: paidFallback.ign, level: paidFallback.level, provider: paidFallback.provider });
-        }
-      }
-    } catch {
-      // continue to second fallback
-    }
-
-    // Legacy public fallback used by some older repos.
-    try {
-      const legacyUrl = `https://info-ob49.vercel.app/api/account/?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`;
-      const legacyRes = await fetchWithTimeout(legacyUrl, { headers: { accept: "application/json" } });
-      if (legacyRes.ok) {
-        const legacyData = await legacyRes.json();
-        const ign = extractIgn(legacyData);
-        if (ign) {
-          const level = extractLevel(legacyData);
-          setCachedResult(uid, region, { ign, level, raw: legacyData, provider: "legacy-public-provider" });
-          return res.status(200).json({ uid, region, ign, level, provider: "legacy-public-provider" });
         }
       }
     } catch {

@@ -8,10 +8,11 @@ const router = Router();
 
 router.get("/push/vapid-public-key", (_req, res) => {
   const publicKey = getVapidPublicKey();
+  // 200 + missing key avoids browser console noise when push is optional (no VAPID_* on server).
   if (!publicKey) {
-    return res.status(503).json({ error: "unavailable", message: "Web push is not configured on this server" });
+    return res.status(200).json({ configured: false, publicKey: null });
   }
-  return res.status(200).json({ publicKey });
+  return res.status(200).json({ configured: true, publicKey });
 });
 
 router.post("/push/subscribe", requireAuth, async (req: AuthRequest, res) => {
