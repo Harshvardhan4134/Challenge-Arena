@@ -7,6 +7,8 @@ export type UserDoc = {
   username: string;
   passwordHash: string;
   email: string | null;
+  /** E.164-style or local digits; used for WhatsApp match alerts when configured */
+  whatsappPhone?: string | null;
   freefireUid: string | null;
   ign: string | null;
   gender: "male" | "female" | "other" | null;
@@ -50,10 +52,23 @@ export type ChallengeDoc = {
   status: ChallengeStatus;
   teamAId: string;
   teamBId: string | null;
+  pendingTeamBId?: string | null;
+  pendingRequestedBy?: string | null;
+  pendingRequestedAt?: string | null;
   roomId: string | null;
   roomPassword: string | null;
   creatorId: string;
   winnerId: string | null;
+  createdAt: string;
+  /** When true, 15-minute pre-match reminder was already sent to leaders */
+  matchReminder15mSent?: boolean;
+};
+
+export type PushSubscriptionDoc = {
+  id: string;
+  userId: string;
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
   createdAt: string;
 };
 
@@ -95,6 +110,7 @@ export const collections = {
   matchResults: firestore.collection("matchResults"),
   messages: firestore.collection("messages"),
   notifications: firestore.collection("notifications"),
+  pushSubscriptions: firestore.collection("pushSubscriptions"),
 };
 
 export function nowIso(): string {

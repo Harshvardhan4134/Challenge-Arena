@@ -1,8 +1,36 @@
 import { Router } from "express";
+import crypto from "crypto";
 import { requireAuth, AuthRequest } from "../middleware/auth";
-import { byCreatedDesc, collections, type NotificationDoc } from "../lib/firestore-db";
+import { byCreatedDesc, collections, nowIso, type NotificationDoc, type PushSubscriptionDoc } from "../lib/firestore-db";
+import { getVapidPublicKey } from "../lib/notify-user";
 
 const router = Router();
+
+router.get("/push/vapid-public-key", (_req, res) => {
+  const publicKey = getVapidPublicKey();
+  if (!publicKey) {
+    return res.status(503).json({ error: "unavailable", message: "Web push is not configured on this server" });
+  }
+  return res.status(200).json({ publicKey });
+});
+
+router.post("/push/subscribe", requireAuth, async (req: AuthRequest, res) => {
+  const sub = req.body?.subscription as { endpoint?: string; keys?: { p256dh?: string; auth?: string } } | undefined;
+  if (!sub?.endpoint || !sub.keys?.p256dh || !sub.keys?.auth) {
+    return res.status(400).json({ error: "validation", message: "Invalid push subscription payload" });
+  }
+  const userId = req.userId!;
+  const id = crypto.randomUUID();
+  const doc: PushSubscriptionDoc = {
+    id,
+    userId,
+    endpoint: sub.endpoint,
+    keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth },
+    createdAt: nowIso(),
+  };
+  await collections.pushSubscriptions.doc(id).set(doc);
+  return res.status(201).json({ success: true, id });
+});
 
 router.get("/", requireAuth, async (req: AuthRequest, res) => {
   const userId = req.userId!;

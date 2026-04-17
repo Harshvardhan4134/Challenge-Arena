@@ -2,6 +2,7 @@ import { Router } from "express";
 import { UpdateUserBody } from "@workspace/api-zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { collections, type PlayerStatsDoc, type UserDoc } from "../lib/firestore-db";
+import { normalizeWhatsappInput } from "../lib/whatsapp-util";
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.put("/:userId/update", requireAuth, async (req: AuthRequest, res) => {
   const parsed = UpdateUserBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
 
-  const { freefireUid, ign, gender } = parsed.data;
+  const { freefireUid, ign, gender, whatsappPhone, email } = parsed.data;
   const updates: Record<string, unknown> = {};
   if (freefireUid !== undefined) {
     const uidSnap = await collections.users.where("freefireUid", "==", freefireUid).limit(1).get();
@@ -38,6 +39,13 @@ router.put("/:userId/update", requireAuth, async (req: AuthRequest, res) => {
   }
   if (ign !== undefined) updates.ign = ign;
   if (gender !== undefined) updates.gender = gender;
+  if (whatsappPhone !== undefined) {
+    updates.whatsappPhone = normalizeWhatsappInput(whatsappPhone);
+  }
+  if (email !== undefined) {
+    const e = email?.trim();
+    updates.email = e ? e : null;
+  }
 
   await collections.users.doc(userId).set(updates, { merge: true });
   const updatedDoc = await collections.users.doc(userId).get();

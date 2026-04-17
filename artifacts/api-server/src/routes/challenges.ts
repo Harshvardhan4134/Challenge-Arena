@@ -12,12 +12,12 @@ import {
   nowIso,
   type ChallengeDoc,
   type MatchResultDoc,
-  type NotificationDoc,
   type PlayerStatsDoc,
   type TeamDoc,
   type TeamMemberDoc,
   type UserDoc,
 } from "../lib/firestore-db";
+import { notifyUser } from "../lib/notify-user";
 
 const router = Router();
 
@@ -62,6 +62,7 @@ async function buildChallengeResponse(challenge: ChallengeDoc) {
   const maxSize = MODE_SIZE[challenge.mode] || 1;
 
   let teamBData = null;
+  let pendingTeamBData = null;
   const now = Date.now();
   const scheduledAtMs = new Date(challenge.scheduledAt).getTime();
   const isExpired = ["open", "full", "in_progress"].includes(challenge.status) &&
@@ -78,6 +79,18 @@ async function buildChallengeResponse(challenge: ChallengeDoc) {
       teamBData = { id: teamB.id, name: teamB.name, leaderId: teamB.leaderId, players: teamBMembersWithUsernames, maxSize };
     }
   }
+  if (challenge.pendingTeamBId) {
+    const pendingTeamBDoc = await collections.teams.doc(challenge.pendingTeamBId).get();
+    const pendingTeamB = pendingTeamBDoc.exists ? (pendingTeamBDoc.data() as TeamDoc) : null;
+    const pendingTeamBMembers = await getTeamMembers(challenge.pendingTeamBId);
+    const pendingTeamBMembersWithUsernames = await Promise.all(pendingTeamBMembers.map(async (m) => {
+      const u = await getUser(m.userId);
+      return { userId: m.userId, username: u?.username || "", ign: u?.ign || null, isLeader: m.isLeader, joinedAt: m.joinedAt };
+    }));
+    if (pendingTeamB) {
+      pendingTeamBData = { id: pendingTeamB.id, name: pendingTeamB.name, leaderId: pendingTeamB.leaderId, players: pendingTeamBMembersWithUsernames, maxSize };
+    }
+  }
 
   return {
     id: challenge.id,
@@ -89,6 +102,9 @@ async function buildChallengeResponse(challenge: ChallengeDoc) {
     status: challenge.status,
     teamA: teamA ? { id: teamA.id, name: teamA.name, leaderId: teamA.leaderId, players: teamAMembersWithUsernames, maxSize } : null,
     teamB: teamBData,
+    pendingTeamB: pendingTeamBData,
+    pendingRequestedBy: challenge.pendingRequestedBy ?? null,
+    pendingRequestedAt: challenge.pendingRequestedAt ?? null,
     roomId: challenge.roomId,
     roomPassword: challenge.roomPassword,
     createdAt: challenge.createdAt,
@@ -113,9 +129,15 @@ router.get("/", async (req, res) => {
   const { mode, status, hasSlots, state } = req.query;
   let challenges = (await collections.challenges.get()).docs.map((d) => d.data() as ChallengeDoc);
 
+  const now = Date.now();
   if (mode) challenges = challenges.filter(c => c.mode === mode);
   if (status) challenges = challenges.filter(c => c.status === status);
   else challenges = challenges.filter(c => ["open", "full", "in_progress"].includes(c.status));
+  challenges = challenges.filter((c) => {
+    const scheduledAtMs = new Date(c.scheduledAt).getTime();
+    if (Number.isNaN(scheduledAtMs)) return false;
+    return now < scheduledAtMs;
+  });
 
   const results = await Promise.all(challenges.map(buildChallengeResponse));
 
@@ -186,6 +208,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     roomPassword: null,
     winnerId: null,
     createdAt: nowIso(),
+    matchReminder15mSent: false,
   };
   await collections.challenges.doc(challengeId).set(challenge);
 
@@ -222,8 +245,12 @@ router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => 
   const challengeDoc = await collections.challenges.doc(challengeId).get();
   if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
   const challenge = challengeDoc.data() as ChallengeDoc;
-  if (Date.now() > new Date(challenge.scheduledAt).getTime() + CHALLENGE_TTL_MS) {
+  const startsAtMs = new Date(challenge.scheduledAt).getTime();
+  if (Date.now() > startsAtMs + CHALLENGE_TTL_MS) {
     return res.status(400).json({ error: "expired", message: "Challenge has expired" });
+  }
+  if (Date.now() >= startsAtMs) {
+    return res.status(400).json({ error: "started", message: "Match has already started" });
   }
   if (challenge.status !== "open") return res.status(400).json({ error: "closed", message: "Challenge is not open" });
 
@@ -237,14 +264,31 @@ router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => 
     const id = crypto.randomUUID();
     await collections.teamMembers.doc(id).set({ id, teamId: challenge.teamAId, userId, isLeader: false, joinedAt: nowIso() } satisfies TeamMemberDoc);
   } else {
-    if (!challenge.teamBId) {
+    if (!challenge.teamBId && !challenge.pendingTeamBId) {
       const resolvedTeamName = teamName?.trim() || "Challengers";
       const newTeamBId = crypto.randomUUID();
       await collections.teams.doc(newTeamBId).set({ id: newTeamBId, name: resolvedTeamName, leaderId: userId, createdAt: nowIso() } satisfies TeamDoc);
       const memberIdB = crypto.randomUUID();
       await collections.teamMembers.doc(memberIdB).set({ id: memberIdB, teamId: newTeamBId, userId, isLeader: true, joinedAt: nowIso() } satisfies TeamMemberDoc);
-      challenge.teamBId = newTeamBId;
-      await collections.challenges.doc(challengeId).set({ teamBId: newTeamBId }, { merge: true });
+      await collections.challenges.doc(challengeId).set({
+        pendingTeamBId: newTeamBId,
+        pendingRequestedBy: userId,
+        pendingRequestedAt: nowIso(),
+      }, { merge: true });
+      const teamALeaderDoc = await collections.teams.doc(challenge.teamAId).get();
+      const teamALeaderId = teamALeaderDoc.exists ? (teamALeaderDoc.data() as TeamDoc).leaderId : null;
+      if (teamALeaderId) {
+        await notifyUser(teamALeaderId, {
+          type: "challenge_request",
+          title: "Challenge request pending",
+          message: `${resolvedTeamName} wants to challenge you. Accept to start.`,
+          challengeId,
+        });
+      }
+      const pendingDoc = await collections.challenges.doc(challengeId).get();
+      return res.status(200).json(await buildChallengeResponse(pendingDoc.data() as ChallengeDoc));
+    } else if (challenge.pendingTeamBId && !challenge.teamBId) {
+      return res.status(400).json({ error: "pending", message: "Challenge request already pending approval" });
     } else {
       const members = await getTeamMembers(challenge.teamBId);
       if (members.length >= maxSize) return res.status(400).json({ error: "full", message: "Team B is full" });
@@ -270,17 +314,12 @@ router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => 
   const teamALeaderDoc = await collections.teams.doc(challenge.teamAId).get();
   const teamALeaderId = teamALeaderDoc.exists ? (teamALeaderDoc.data() as TeamDoc).leaderId : null;
   if (teamALeaderId) {
-    const notification: NotificationDoc = {
-      id: crypto.randomUUID(),
-      userId: teamALeaderId,
+    await notifyUser(teamALeaderId, {
       type: "player_joined",
-      title: "Player Joined",
-      message: "A new player joined your challenge",
+      title: "Player joined",
+      message: "A new player joined your challenge.",
       challengeId,
-      isRead: false,
-      createdAt: nowIso(),
-    };
-    await collections.notifications.doc(notification.id).set(notification);
+    });
   }
 
   const finalDoc = await collections.challenges.doc(challengeId).get();
@@ -319,6 +358,9 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
   if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
   const challenge = challengeDoc.data() as ChallengeDoc;
   if (!challenge.teamBId) return res.status(400).json({ error: "invalid_state", message: "Challenge does not have two teams yet" });
+  if (!screenshotUrl?.trim()) {
+    return res.status(400).json({ error: "validation", message: "Result proof image is required" });
+  }
 
   const teamIds = [challenge.teamAId, challenge.teamBId].filter(Boolean) as string[];
   const membersSnap = await collections.teamMembers.get();
@@ -380,7 +422,7 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
     challengeId,
     submittedBy: userId,
     winningSide: winningSide as "teamA" | "teamB",
-    screenshotUrl: screenshotUrl ?? null,
+    screenshotUrl: screenshotUrl,
     status: "pending",
     createdAt: nowIso(),
   };
@@ -391,21 +433,66 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
     const opponentTeamDoc = await collections.teams.doc(opponentTeamId).get();
     const opponentTeam = opponentTeamDoc.exists ? (opponentTeamDoc.data() as TeamDoc) : null;
     if (opponentTeam?.leaderId) {
-      const notification: NotificationDoc = {
-        id: crypto.randomUUID(),
-        userId: opponentTeam.leaderId,
+      await notifyUser(opponentTeam.leaderId, {
         type: "match_result",
         title: "Result submitted",
         message: "Opponent submitted result. Confirm or dispute within 20 minutes.",
         challengeId,
-        isRead: false,
-        createdAt: nowIso(),
-      };
-      await collections.notifications.doc(notification.id).set(notification);
+      });
     }
   }
 
   return res.status(200).json(result);
+});
+
+router.post("/:challengeId/accept-challenger", requireAuth, async (req: AuthRequest, res) => {
+  const { challengeId } = req.params;
+  const userId = req.userId!;
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
+
+  const teamADoc = await collections.teams.doc(challenge.teamAId).get();
+  const teamA = teamADoc.exists ? (teamADoc.data() as TeamDoc) : null;
+  if (!teamA || teamA.leaderId !== userId) {
+    return res.status(403).json({ error: "forbidden", message: "Only the challenge host can accept this request" });
+  }
+  if (challenge.teamBId) {
+    return res.status(400).json({ error: "invalid_state", message: "Challenge already accepted" });
+  }
+  if (!challenge.pendingTeamBId) {
+    return res.status(400).json({ error: "invalid_state", message: "No pending challenge request" });
+  }
+  if (Date.now() >= new Date(challenge.scheduledAt).getTime()) {
+    return res.status(400).json({ error: "started", message: "Match has already started" });
+  }
+
+  const maxSize = MODE_SIZE[challenge.mode] || 1;
+  const teamAMembers = await getTeamMembers(challenge.teamAId);
+  const teamBMembers = await getTeamMembers(challenge.pendingTeamBId);
+  const nextStatus: "open" | "full" = teamAMembers.length >= maxSize && teamBMembers.length >= maxSize ? "full" : "open";
+
+  await collections.challenges.doc(challengeId).set({
+    teamBId: challenge.pendingTeamBId,
+    pendingTeamBId: null,
+    pendingRequestedBy: null,
+    pendingRequestedAt: null,
+    status: nextStatus,
+  }, { merge: true });
+
+  const pendingTeamDoc = await collections.teams.doc(challenge.pendingTeamBId).get();
+  const pendingTeam = pendingTeamDoc.exists ? (pendingTeamDoc.data() as TeamDoc) : null;
+  if (pendingTeam?.leaderId) {
+    await notifyUser(pendingTeam.leaderId, {
+      type: "challenge_accepted",
+      title: "Challenge accepted",
+      message: `${teamA.name} accepted your challenge request.`,
+      challengeId,
+    });
+  }
+
+  const finalDoc = await collections.challenges.doc(challengeId).get();
+  return res.status(200).json(await buildChallengeResponse(finalDoc.data() as ChallengeDoc));
 });
 
 router.post("/:challengeId/room", requireAuth, async (req: AuthRequest, res) => {
@@ -419,6 +506,9 @@ router.post("/:challengeId/room", requireAuth, async (req: AuthRequest, res) => 
   const challengeDoc = await collections.challenges.doc(challengeId).get();
   if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
   const challenge = challengeDoc.data() as ChallengeDoc;
+  if (Date.now() >= new Date(challenge.scheduledAt).getTime()) {
+    return res.status(400).json({ error: "started", message: "Cannot share room after match start time" });
+  }
 
   const teamADoc = await collections.teams.doc(challenge.teamAId).get();
   const teamA = teamADoc.exists ? (teamADoc.data() as TeamDoc) : null;
@@ -431,17 +521,12 @@ router.post("/:challengeId/room", requireAuth, async (req: AuthRequest, res) => 
     const members = await getTeamMembers(teamId);
     for (const m of members) {
       if (m.userId !== userId) {
-        const notification: NotificationDoc = {
-          id: crypto.randomUUID(),
-          userId: m.userId,
+        await notifyUser(m.userId, {
           type: "match_starting",
-          title: "Match Starting!",
+          title: "Match starting",
           message: `Room is ready! Room ID: ${roomId}`,
           challengeId,
-          isRead: false,
-          createdAt: nowIso(),
-        };
-        await collections.notifications.doc(notification.id).set(notification);
+        });
       }
     }
   }

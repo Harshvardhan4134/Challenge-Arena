@@ -26,7 +26,7 @@ export default function Profile() {
   const history = useGetUserMatchHistory(userId ?? "", { query: { enabled: !!userId, queryKey: ["getUserMatchHistory", userId] } });
 
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ freefireUid: "", ign: "", gender: "" });
+  const [form, setForm] = useState({ email: "", whatsappPhone: "", freefireUid: "", ign: "", gender: "" });
   const [lookupRegion, setLookupRegion] = useState("IND");
   const [lookupError, setLookupError] = useState("");
   const [lookupSuccess, setLookupSuccess] = useState("");
@@ -52,7 +52,13 @@ export default function Profile() {
 
   const startEdit = () => {
     const u = user.data;
-    setForm({ freefireUid: u?.freefireUid || "", ign: u?.ign || "", gender: u?.gender || "" });
+    setForm({
+      email: u?.email || "",
+      whatsappPhone: u?.whatsappPhone || "",
+      freefireUid: u?.freefireUid || "",
+      ign: u?.ign || "",
+      gender: u?.gender || "",
+    });
     setLookupError("");
     setLookupSuccess("");
     setEditing(true);
@@ -91,6 +97,8 @@ export default function Profile() {
     updateUser.mutate({
       userId,
       data: {
+        email: form.email.trim() || null,
+        whatsappPhone: form.whatsappPhone.trim() || null,
         freefireUid: form.freefireUid || undefined,
         ign: form.ign || undefined,
         gender: (form.gender as "male" | "female" | "other") || undefined,
@@ -148,12 +156,20 @@ export default function Profile() {
               </div>
             )}
             {u?.gender && <div className="text-xs font-mono text-gray-500 capitalize">{u.gender}</div>}
+            {u?.email && !editing && (
+              <div className="text-xs font-mono text-gray-600 mt-1">Email: {u.email}</div>
+            )}
+            {u?.whatsappPhone && !editing && (
+              <div className="text-xs font-mono text-gray-600 mt-1">WhatsApp: {u.whatsappPhone}</div>
+            )}
             <div className="text-[10px] font-mono text-gray-400 mt-2">
               JOINED {new Date(u?.createdAt ?? "").toLocaleDateString()}
             </div>
 
             {editing && isOwnProfile && (
               <div className="border-t-2 border-black mt-3 pt-3 space-y-2">
+                <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Email (for match alerts)" className={inputCls} />
+                <input type="tel" value={form.whatsappPhone} onChange={e => setForm(f => ({ ...f, whatsappPhone: e.target.value }))} placeholder="WhatsApp with country code" className={inputCls} />
                 <input type="text" value={form.freefireUid} onChange={e => setForm(f => ({ ...f, freefireUid: e.target.value }))} placeholder="Free Fire UID" className={inputCls} />
                 <div className="flex gap-2">
                   <select

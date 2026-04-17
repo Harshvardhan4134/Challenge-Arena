@@ -29,6 +29,8 @@ export const RegisterBody = zod.object({
     .max(registerBodyUsernameMax),
   password: zod.string().min(registerBodyPasswordMin),
   email: zod.string().email().optional(),
+  /** Digits with optional +country code; used for WhatsApp match alerts */
+  whatsappPhone: zod.string().max(22).optional(),
   freefireUid: zod.string(),
   ign: zod.string().optional(),
   gender: zod.enum(["male", "female", "other"]).nullish(),
@@ -46,6 +48,8 @@ export const LoginResponse = zod.object({
   user: zod.object({
     id: zod.string(),
     username: zod.string(),
+    email: zod.string().nullish(),
+    whatsappPhone: zod.string().nullish(),
     freefireUid: zod.string().nullish(),
     ign: zod.string().nullish(),
     gender: zod.string().nullish(),
@@ -78,6 +82,8 @@ export const LogoutResponse = zod.object({
 export const GetMeResponse = zod.object({
   id: zod.string(),
   username: zod.string(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
   freefireUid: zod.string().nullish(),
   ign: zod.string().nullish(),
   gender: zod.string().nullish(),
@@ -104,6 +110,8 @@ export const GetUserParams = zod.object({
 export const GetUserResponse = zod.object({
   id: zod.string(),
   username: zod.string(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
   freefireUid: zod.string().nullish(),
   ign: zod.string().nullish(),
   gender: zod.string().nullish(),
@@ -131,11 +139,15 @@ export const UpdateUserBody = zod.object({
   freefireUid: zod.string().optional(),
   ign: zod.string().optional(),
   gender: zod.enum(["male", "female", "other"]).nullish(),
+  whatsappPhone: zod.string().max(22).optional().nullable(),
+  email: zod.string().email().optional().nullable(),
 });
 
 export const UpdateUserResponse = zod.object({
   id: zod.string(),
   username: zod.string(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
   freefireUid: zod.string().nullish(),
   ign: zod.string().nullish(),
   gender: zod.string().nullish(),
@@ -210,6 +222,25 @@ export const ListChallengesResponseItem = zod.object({
       maxSize: zod.number(),
     })
     .nullish(),
+  pendingTeamB: zod
+    .object({
+      id: zod.string(),
+      name: zod.string(),
+      leaderId: zod.string(),
+      players: zod.array(
+        zod.object({
+          userId: zod.string(),
+          username: zod.string(),
+          ign: zod.string().nullish(),
+          isLeader: zod.boolean(),
+          joinedAt: zod.coerce.date(),
+        }),
+      ),
+      maxSize: zod.number(),
+    })
+    .nullish(),
+  pendingRequestedBy: zod.string().nullish(),
+  pendingRequestedAt: zod.coerce.date().nullish(),
   roomId: zod.string().nullish(),
   roomPassword: zod.string().nullish(),
   createdAt: zod.coerce.date(),
@@ -284,6 +315,25 @@ export const GetChallengeResponse = zod.object({
       maxSize: zod.number(),
     })
     .nullish(),
+  pendingTeamB: zod
+    .object({
+      id: zod.string(),
+      name: zod.string(),
+      leaderId: zod.string(),
+      players: zod.array(
+        zod.object({
+          userId: zod.string(),
+          username: zod.string(),
+          ign: zod.string().nullish(),
+          isLeader: zod.boolean(),
+          joinedAt: zod.coerce.date(),
+        }),
+      ),
+      maxSize: zod.number(),
+    })
+    .nullish(),
+  pendingRequestedBy: zod.string().nullish(),
+  pendingRequestedAt: zod.coerce.date().nullish(),
   roomId: zod.string().nullish(),
   roomPassword: zod.string().nullish(),
   createdAt: zod.coerce.date(),
@@ -362,6 +412,25 @@ export const JoinChallengeResponse = zod.object({
       maxSize: zod.number(),
     })
     .nullish(),
+  pendingTeamB: zod
+    .object({
+      id: zod.string(),
+      name: zod.string(),
+      leaderId: zod.string(),
+      players: zod.array(
+        zod.object({
+          userId: zod.string(),
+          username: zod.string(),
+          ign: zod.string().nullish(),
+          isLeader: zod.boolean(),
+          joinedAt: zod.coerce.date(),
+        }),
+      ),
+      maxSize: zod.number(),
+    })
+    .nullish(),
+  pendingRequestedBy: zod.string().nullish(),
+  pendingRequestedAt: zod.coerce.date().nullish(),
   roomId: zod.string().nullish(),
   roomPassword: zod.string().nullish(),
   createdAt: zod.coerce.date(),

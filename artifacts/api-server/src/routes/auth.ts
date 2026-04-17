@@ -3,6 +3,7 @@ import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import crypto from "crypto";
 import { firebaseAdminAuth } from "../lib/firebase-admin";
 import { collections, nowIso, type PlayerStatsDoc, type UserDoc } from "../lib/firestore-db";
+import { normalizeWhatsappInput } from "../lib/whatsapp-util";
 
 const router = Router();
 
@@ -52,7 +53,7 @@ router.post("/register", async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: "Validation error", message: parsed.error.message });
   }
-  const { username, password, email, freefireUid, ign, gender } = parsed.data;
+  const { username, password, email, freefireUid, ign, gender, whatsappPhone } = parsed.data;
 
   const existing = await collections.users.where("username", "==", username).limit(1).get();
   if (!existing.empty) {
@@ -72,6 +73,7 @@ router.post("/register", async (req, res) => {
     username,
     passwordHash,
     email: email ?? null,
+    whatsappPhone: normalizeWhatsappInput(whatsappPhone),
     freefireUid: freefireUid ?? null,
     ign: ign ?? null,
     gender: (gender as "male" | "female" | "other" | undefined) ?? null,
@@ -125,11 +127,13 @@ router.post("/google", async (req, res) => {
     freefireUid?: unknown;
     ign?: unknown;
     gender?: unknown;
+    whatsappPhone?: unknown;
   };
   const idToken = typeof body.idToken === "string" ? body.idToken : "";
   const username = typeof body.username === "string" ? body.username : undefined;
   const freefireUid = typeof body.freefireUid === "string" ? body.freefireUid : undefined;
   const ign = typeof body.ign === "string" ? body.ign : undefined;
+  const whatsappPhone = typeof body.whatsappPhone === "string" ? body.whatsappPhone : undefined;
   const gender = body.gender === "male" || body.gender === "female" || body.gender === "other"
     ? body.gender
     : undefined;
@@ -200,6 +204,7 @@ router.post("/google", async (req, res) => {
     username: username!,
     passwordHash: generatedPasswordHash,
     email,
+    whatsappPhone: normalizeWhatsappInput(whatsappPhone),
     freefireUid: freefireUid!,
     ign: ign ?? decodedToken.name ?? null,
     gender: (gender as "male" | "female" | "other" | undefined) ?? null,

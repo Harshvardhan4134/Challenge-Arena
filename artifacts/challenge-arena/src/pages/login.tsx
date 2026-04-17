@@ -2,10 +2,8 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { setAuthToken } from "@/lib/auth";
-import { firebaseAuth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
 import { exchangeGoogleToken } from "@/lib/google-auth";
-import { signInWithPopup } from "firebase/auth";
-import { Swords, Eye, EyeOff } from "lucide-react";
+import { Swords, Eye, EyeOff, Phone } from "lucide-react";
 
 export default function Login() {
   const [, navigate] = useLocation();
@@ -21,6 +19,7 @@ export default function Login() {
     freefireUid: "",
     ign: "",
     gender: "",
+    whatsappPhone: "",
   });
 
   const { mutate, isPending } = useLogin({
@@ -41,19 +40,21 @@ export default function Login() {
     mutate({ data: { username, password } });
   };
 
-  const setGoogleField = (k: "username" | "freefireUid" | "ign" | "gender") =>
+  const setGoogleField = (k: "username" | "freefireUid" | "ign" | "gender" | "whatsappPhone") =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setGoogleProfileForm((prev) => ({ ...prev, [k]: e.target.value }));
 
   const handleGoogleLogin = async () => {
     setError("");
-    if (!isFirebaseConfigured() || !firebaseAuth || !googleProvider) {
+    const firebaseMod = await import("@/lib/firebase");
+    const authMod = await import("firebase/auth");
+    if (!firebaseMod.isFirebaseConfigured() || !firebaseMod.firebaseAuth || !firebaseMod.googleProvider) {
       setError("Google login is not configured yet. Ask admin to add Firebase env keys.");
       return;
     }
     setIsGooglePending(true);
     try {
-      const cred = await signInWithPopup(firebaseAuth, googleProvider);
+      const cred = await authMod.signInWithPopup(firebaseMod.firebaseAuth, firebaseMod.googleProvider);
       const idToken = await cred.user.getIdToken();
       setGoogleIdToken(idToken);
 
@@ -93,6 +94,7 @@ export default function Login() {
         freefireUid: googleProfileForm.freefireUid,
         ign: googleProfileForm.ign || undefined,
         gender: (googleProfileForm.gender as "male" | "female" | "other") || undefined,
+        whatsappPhone: googleProfileForm.whatsappPhone.trim() || undefined,
       });
 
       if (status >= 400 || !body.token) {
@@ -232,6 +234,20 @@ export default function Login() {
                 value={googleProfileForm.ign}
                 onChange={setGoogleField("ign")}
                 className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+              />
+            </div>
+            <div>
+              <label className="section-label flex items-center gap-1 mb-1">
+                <Phone className="w-3.5 h-3.5" />
+                WHATSAPP (MATCH ALERTS) *
+              </label>
+              <input
+                type="tel"
+                required
+                value={googleProfileForm.whatsappPhone}
+                onChange={setGoogleField("whatsappPhone")}
+                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+                placeholder="+country code and number"
               />
             </div>
             <div>

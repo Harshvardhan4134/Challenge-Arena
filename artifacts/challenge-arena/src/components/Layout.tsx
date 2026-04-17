@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
 import { Home, Swords, Trophy, Bell, User } from "lucide-react";
-import { useListNotifications } from "@workspace/api-client-react";
+import { useGetMe, useListNotifications, getGetMeQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
+import { registerWebPushForUser } from "@/lib/push-notifications";
 
 const navItems = [
   { path: "/home", icon: Home, label: "HOME" },
@@ -13,8 +15,15 @@ const navItems = [
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [, navigate] = useLocation();
-  const notifications = useListNotifications({ query: { queryKey: ["listNotifications"] } });
+  const me = useGetMe({ query: { queryKey: getGetMeQueryKey() } });
+  const notifications = useListNotifications({
+    query: { queryKey: ["listNotifications"], refetchInterval: 30_000 },
+  });
   const unread = notifications.data?.filter(n => !n.isRead).length ?? 0;
+
+  useEffect(() => {
+    if (me.data?.id) void registerWebPushForUser();
+  }, [me.data?.id]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

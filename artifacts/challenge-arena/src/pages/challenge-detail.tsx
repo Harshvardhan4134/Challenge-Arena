@@ -10,6 +10,8 @@ import Layout from "@/components/Layout";
 import { ArrowLeft, Send, Shield, Trophy, Key, Lock, MessageSquare, Users, Clock, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatChallengeRuleId } from "@/lib/challenge-rules";
+import { apiUrl } from "@/lib/api-url";
+import { getAuthToken } from "@/lib/auth";
 
 function useCountdown(target: string) {
   const [label, setLabel] = useState("");
@@ -53,13 +55,18 @@ export default function ChallengeDetail() {
   const qc = useQueryClient();
 
   const me = useGetMe({ query: { queryKey: ["getMe"] } });
-  const challenge = useGetChallenge(challengeId, { query: { enabled: !!challengeId, queryKey: getGetChallengeQueryKey(challengeId) } });
-  const messages = useGetChallengeMessages(challengeId, { query: { enabled: !!challengeId, queryKey: getGetChallengeMessagesQueryKey(challengeId) } });
+  const challenge = useGetChallenge(challengeId, {
+    query: { enabled: !!challengeId, queryKey: getGetChallengeQueryKey(challengeId), refetchInterval: 5000 },
+  });
+  const messages = useGetChallengeMessages(challengeId, {
+    query: { enabled: !!challengeId, queryKey: getGetChallengeMessagesQueryKey(challengeId), refetchInterval: 3000 },
+  });
 
   const [msgText, setMsgText] = useState("");
   const [roomId, setRoomId] = useState("");
   const [roomPass, setRoomPass] = useState("");
   const [resultSide, setResultSide] = useState<"teamA" | "teamB" | "">("");
+  const [resultProofUrl, setResultProofUrl] = useState("");
   const [error, setError] = useState("");
 
   // Team name for joining as Team B leader
@@ -84,6 +91,7 @@ export default function ChallengeDetail() {
   if (challenge.isLoading) return <Layout><div className="py-8 text-center font-black text-black">LOADING...</div></Layout>;
   if (!c) return <Layout><div className="py-8 text-center font-black text-black">CHALLENGE NOT FOUND.</div></Layout>;
 
+  const pendingTeamB = (c as any).pendingTeamB as { leaderId: string; players: Array<{ userId: string }> } | null | undefined;
   const userId = me.data?.id;
   const teamALeaderId = c.teamA?.leaderId;
   const teamBLeaderId = c.teamB?.leaderId;
@@ -92,10 +100,14 @@ export default function ChallengeDetail() {
   const isLeader = isTeamALeader || isTeamBLeader;
   const inTeamA = c.teamA?.players.some(p => p.userId === userId);
   const inTeamB = c.teamB?.players.some(p => p.userId === userId);
+  const inPendingTeamB = pendingTeamB?.players?.some((p) => p.userId === userId) ?? false;
   const inChallenge = inTeamA || inTeamB;
+  const isPendingChallengerLeader = Boolean(pendingTeamB?.leaderId && pendingTeamB.leaderId === userId);
+  const canAcceptPendingChallenger = isTeamALeader && !c.teamB && !!pendingTeamB;
+  const hasMatchStarted = Date.now() >= new Date(c.scheduledAt).getTime();
 
-  const canJoinA = !inChallenge && (c.teamA?.players.length ?? 0) < (c.teamA?.maxSize ?? 1) && c.status === "open";
-  const canJoinB = !inChallenge && c.status === "open";
+  const canJoinA = !inChallenge && !inPendingTeamB && !pendingTeamB && (c.teamA?.players.length ?? 0) < (c.teamA?.maxSize ?? 1) && c.status === "open" && !hasMatchStarted;
+  const canJoinB = !inChallenge && !inPendingTeamB && !pendingTeamB && c.status === "open" && !hasMatchStarted;
 
   // Chat only shows when both teams are present
   const bothTeamsJoined = !!c.teamA && !!c.teamB && c.teamB.players.length > 0;
@@ -112,6 +124,27 @@ export default function ChallengeDetail() {
   const statusInfo = STATUS_STYLE[c.status] || { bg: "bg-gray-400 text-white", label: c.status.toUpperCase() };
 
   const inputCls = "w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold text-black focus:outline-none focus:border-[#FF6B00] transition-colors placeholder:font-normal placeholder:text-gray-400";
+  const acceptPendingChallenger = async () => {
+    setError("");
+    const token = getAuthToken();
+    if (!token) return setError("Please login again.");
+    const res = await fetch(apiUrl(`/api/challenges/${challengeId}/accept-challenger`), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) return setError(body?.message || "Could not accept challenger.");
+    invalidate();
+  };
+  const onPickProofImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") setResultProofUrl(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
 
   return (
     <Layout>
@@ -257,6 +290,27 @@ export default function ChallengeDetail() {
           </div>
         )}
 
+        {pendingTeamB && !c.teamB && (
+          <div className="card-brutal bg-white p-4">
+            <div className="text-[10px] font-black font-mono text-black uppercase tracking-widest mb-2">
+              CHALLENGE REQUEST PENDING
+            </div>
+            <div className="text-xs font-bold text-gray-700 mb-3">
+              Team A challenger must accept before this match opens.
+            </div>
+            {canAcceptPendingChallenger ? (
+              <button
+                onClick={acceptPendingChallenger}
+                className="btn-brutal w-full py-2.5 text-xs bg-[#00854B] text-white"
+              >
+                ACCEPT CHALLENGE REQUEST
+              </button>
+            ) : isPendingChallengerLeader || inPendingTeamB ? (
+              <div className="text-xs font-black text-[#FF6B00]">Waiting for Team A challenger approval.</div>
+            ) : null}
+          </div>
+        )}
+
         {inChallenge && c.status === "open" && !isTeamALeader && (
           <button onClick={() => leaveChallenge.mutate({ challengeId })} className="text-xs font-black text-[#FF1E56] underline hover:opacity-70 transition-opacity">
             Leave challenge
@@ -296,7 +350,7 @@ export default function ChallengeDetail() {
         )}
 
         {/* Share room (Team A leader only) */}
-        {isTeamALeader && !c.roomId && (c.status === "full" || c.status === "in_progress" || c.status === "open") && (
+        {isTeamALeader && !hasMatchStarted && !c.roomId && (c.status === "full" || c.status === "in_progress" || c.status === "open") && (
           <div className="card-brutal bg-white p-4">
             <div className="flex items-center gap-1.5 mb-3">
               <Lock className="w-3.5 h-3.5 text-[#FF6B00]" />
@@ -317,7 +371,7 @@ export default function ChallengeDetail() {
         )}
 
         {/* Submit result — ONLY the challenge creator (Team A leader) */}
-        {isTeamALeader && (c.status === "in_progress" || c.status === "full") && (
+        {isTeamALeader && !hasMatchStarted && (c.status === "in_progress" || c.status === "full") && (
           <div className="card-brutal bg-white p-4">
             <div className="flex items-center gap-1.5 mb-1">
               <Trophy className="w-3.5 h-3.5 text-[#FF6B00]" />
@@ -340,9 +394,24 @@ export default function ChallengeDetail() {
                 {c.teamB?.name || "TEAM B"} WON
               </button>
             </div>
+            <div className="space-y-2 mb-3">
+              <input
+                type="url"
+                value={resultProofUrl}
+                onChange={(e) => setResultProofUrl(e.target.value)}
+                placeholder="Result proof image URL (required)"
+                className={inputCls}
+              />
+              <input
+                type="file"
+                accept="image/*"
+                onChange={onPickProofImage}
+                className="w-full text-xs font-mono"
+              />
+            </div>
             <button
-              onClick={() => resultSide && submitResult.mutate({ challengeId, data: { winningSide: resultSide } })}
-              disabled={!resultSide || submitResult.isPending}
+              onClick={() => resultSide && submitResult.mutate({ challengeId, data: { winningSide: resultSide, screenshotUrl: resultProofUrl } })}
+              disabled={!resultSide || !resultProofUrl.trim() || submitResult.isPending}
               className="btn-brutal w-full py-2.5 bg-[#00854B] text-white text-sm disabled:opacity-50"
             >
               {submitResult.isPending ? "SUBMITTING..." : "SUBMIT RESULT"}
@@ -351,7 +420,7 @@ export default function ChallengeDetail() {
         )}
 
         {/* Non-creator members see a notice instead */}
-        {!isTeamALeader && inChallenge && (c.status === "in_progress" || c.status === "full") && (
+        {!isTeamALeader && inChallenge && !hasMatchStarted && (c.status === "in_progress" || c.status === "full") && (
           <div className="card-brutal-sm bg-white p-3 flex items-center gap-2">
             <Trophy className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-xs font-black text-gray-600">RESULT IS SUBMITTED BY THE CHALLENGE CREATOR</span>

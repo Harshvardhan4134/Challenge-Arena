@@ -11,6 +11,9 @@ const TYPE_STYLE: Record<string, { label: string; cls: string }> = {
   match_ready: { label: "MATCH READY", cls: "tag-black" },
   match_starting: { label: "STARTING", cls: "tag-black" },
   match_result: { label: "RESULT", cls: "tag-pink" },
+  challenge_request: { label: "REQUEST", cls: "tag-orange" },
+  challenge_accepted: { label: "ACCEPTED", cls: "tag-green" },
+  match_reminder: { label: "REMINDER", cls: "tag-black" },
 };
 
 export default function Notifications() {

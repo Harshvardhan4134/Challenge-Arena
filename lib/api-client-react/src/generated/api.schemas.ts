@@ -37,6 +37,9 @@ export interface RegisterBody {
   username: string;
   /** @minLength 6 */
   password: string;
+  email?: string;
+  /** WhatsApp number for match alerts (with country code) */
+  whatsappPhone?: string;
   freefireUid?: string;
   ign?: string;
   gender?: RegisterBodyGender;
@@ -59,6 +62,8 @@ export interface PlayerStats {
 export interface User {
   id: string;
   username: string;
+  email?: string | null;
+  whatsappPhone?: string | null;
   freefireUid?: string | null;
   ign?: string | null;
   gender?: string | null;
@@ -85,6 +90,8 @@ export interface UpdateUserBody {
   freefireUid?: string;
   ign?: string;
   gender?: UpdateUserBodyGender;
+  whatsappPhone?: string | null;
+  email?: string | null;
 }
 
 export type ChallengeMode = (typeof ChallengeMode)[keyof typeof ChallengeMode];

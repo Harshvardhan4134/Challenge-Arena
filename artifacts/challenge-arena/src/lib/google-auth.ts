@@ -6,6 +6,7 @@ export type GoogleAuthPayload = {
   freefireUid?: string;
   ign?: string;
   gender?: "male" | "female" | "other";
+  whatsappPhone?: string;
 };
 
 export type GoogleAuthResponse = {
