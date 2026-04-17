@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { setAuthToken } from "@/lib/auth";
 import { exchangeGoogleToken } from "@/lib/google-auth";
+import { apiUrl } from "@/lib/api-url";
 import { Swords, Eye, EyeOff, Phone } from "lucide-react";
 
 export default function Login() {
@@ -14,6 +15,9 @@ export default function Login() {
   const [googleIdToken, setGoogleIdToken] = useState("");
   const [isGooglePending, setIsGooglePending] = useState(false);
   const [showGoogleProfileModal, setShowGoogleProfileModal] = useState(false);
+  const [googleLookupRegion, setGoogleLookupRegion] = useState("IND");
+  const [googleLookupError, setGoogleLookupError] = useState("");
+  const [isFetchingGoogleIgn, setIsFetchingGoogleIgn] = useState(false);
   const [googleProfileForm, setGoogleProfileForm] = useState({
     username: "",
     freefireUid: "",
@@ -44,6 +48,46 @@ export default function Login() {
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setGoogleProfileForm((prev) => ({ ...prev, [k]: e.target.value }));
 
+  const fetchIgnForUid = async (uid: string, region: string) => {
+    const res = await fetch(
+      apiUrl(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`),
+    );
+    const rawText = await res.text();
+    let body: unknown = null;
+    try {
+      body = rawText ? JSON.parse(rawText) : null;
+    } catch {
+      body = null;
+    }
+    const b = body as { ign?: string; message?: string } | null;
+    if (!res.ok || !b?.ign) {
+      throw new Error(b?.message || "Could not fetch player name. Enter manually for now.");
+    }
+    return String(b.ign);
+  };
+
+  const fetchIgnForGoogleProfile = async () => {
+    setGoogleLookupError("");
+    const uid = googleProfileForm.freefireUid.trim();
+    if (!uid) {
+      setGoogleLookupError("Enter Free Fire UID first.");
+      return;
+    }
+    setIsFetchingGoogleIgn(true);
+    try {
+      const ign = await fetchIgnForUid(uid, googleLookupRegion);
+      setGoogleProfileForm((prev) => ({ ...prev, ign, username: ign }));
+    } catch (err) {
+      setGoogleLookupError(
+        err instanceof Error
+          ? `${err.message} If UID lookup keeps failing, type your IGN below.`
+          : "Could not verify UID. Type your exact in-game name (IGN) below.",
+      );
+    } finally {
+      setIsFetchingGoogleIgn(false);
+    }
+  };
+
   const handleGoogleLogin = async () => {
     setError("");
     const firebaseMod = await import("@/lib/firebase");
@@ -61,6 +105,7 @@ export default function Login() {
       const { status, body } = await exchangeGoogleToken({ idToken });
 
       if (status === 428 && body.needsProfileCompletion) {
+        setGoogleLookupError("");
         setGoogleProfileForm((prev) => ({
           ...prev,
           username: body.suggested?.username ?? prev.username,
@@ -226,8 +271,30 @@ export default function Login() {
                 onChange={setGoogleField("freefireUid")}
                 className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
               />
-              <p className="text-[10px] font-mono text-gray-600 mt-1.5 border-l-2 border-[#FF6B00] pl-2">
-                If UID lookup or verification fails elsewhere, always enter your exact <strong>IGN</strong> below — we use it as your in-game display name.
+              <div className="flex flex-wrap gap-2 mt-2">
+                <select
+                  value={googleLookupRegion}
+                  onChange={(e) => setGoogleLookupRegion(e.target.value)}
+                  className="px-2 py-2 bg-white border-2 border-black text-xs font-bold focus:outline-none focus:border-[#FF6B00]"
+                >
+                  <option value="IND">IND</option>
+                  <option value="SG">SG</option>
+                  <option value="BR">BR</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={fetchIgnForGoogleProfile}
+                  disabled={isFetchingGoogleIgn}
+                  className="btn-brutal px-3 py-2 bg-white text-black text-[10px] disabled:opacity-60 shrink-0"
+                >
+                  {isFetchingGoogleIgn ? "FETCHING..." : "FETCH IGN FROM UID"}
+                </button>
+              </div>
+              {googleLookupError && (
+                <p className="text-[10px] font-bold text-[#FF1E56] mt-1">{googleLookupError}</p>
+              )}
+              <p className="text-[10px] font-mono text-gray-600 mt-1.5 border-l-2 border-[#FF6B00] pl-2 leading-relaxed">
+                If UID lookup fails, enter your exact <strong>IGN</strong> below — we use it as your in-game display name.
               </p>
             </div>
             <div>
