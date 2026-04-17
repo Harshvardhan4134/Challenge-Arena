@@ -18,6 +18,15 @@ import NotFound from "@/pages/not-found";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsAndConditions from "@/pages/terms-and-conditions";
 
+if (import.meta.env.PROD && !import.meta.env.VITE_API_BASE_URL) {
+  if (typeof window !== "undefined" && /\.vercel\.app$/i.test(window.location.hostname)) {
+    console.warn(
+      "[Challenge Arena] VITE_API_BASE_URL is missing. Requests use this site for /api and return 404. " +
+        "In Vercel → Settings → Environment Variables, set VITE_API_BASE_URL to your deployed API (e.g. https://your-api.onrender.com), then redeploy.",
+    );
+  }
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
