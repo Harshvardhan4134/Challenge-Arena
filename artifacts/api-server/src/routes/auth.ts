@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { firebaseAdminAuth } from "../lib/firebase-admin";
 import { collections, nowIso, type PlayerStatsDoc, type UserDoc } from "../lib/firestore-db";
 import { normalizeWhatsappInput } from "../lib/whatsapp-util";
+import { toSafeUser } from "../lib/user-view";
 
 const router = Router();
 
@@ -19,11 +20,6 @@ const tokenStore = new Map<string, string>();
 
 export function getUserIdFromToken(token: string): string | null {
   return tokenStore.get(token) || null;
-}
-
-function toSafeUser(user: UserDoc) {
-  const { passwordHash: _, ...safeUser } = user;
-  return safeUser;
 }
 
 async function getUserStats(userId: string): Promise<PlayerStatsDoc | null> {

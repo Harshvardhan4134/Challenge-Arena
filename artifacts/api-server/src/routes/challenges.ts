@@ -50,7 +50,7 @@ async function upsertStats(userId: string, patch: Partial<PlayerStatsDoc>) {
   await collections.playerStats.doc(userId).set({ ...current, ...patch }, { merge: true });
 }
 
-async function buildChallengeResponse(challenge: ChallengeDoc) {
+export async function buildChallengeResponse(challenge: ChallengeDoc) {
   const teamADoc = await collections.teams.doc(challenge.teamAId).get();
   const teamA = teamADoc.exists ? (teamADoc.data() as TeamDoc) : null;
   const teamAMembers = await getTeamMembers(challenge.teamAId);

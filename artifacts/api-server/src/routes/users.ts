@@ -3,6 +3,7 @@ import { UpdateUserBody } from "@workspace/api-zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import { collections, type PlayerStatsDoc, type UserDoc } from "../lib/firestore-db";
 import { normalizeWhatsappInput } from "../lib/whatsapp-util";
+import { toSafeUser } from "../lib/user-view";
 
 const router = Router();
 
@@ -14,8 +15,7 @@ router.get("/:userId", async (req, res) => {
 
   const statsDoc = await collections.playerStats.doc(userId).get();
   const stats = statsDoc.exists ? (statsDoc.data() as PlayerStatsDoc) : null;
-  const { passwordHash: _, ...safeUser } = user;
-  return res.status(200).json({ ...safeUser, stats: stats || null });
+  return res.status(200).json({ ...toSafeUser(user), stats: stats || null });
 });
 
 router.put("/:userId/update", requireAuth, async (req: AuthRequest, res) => {
@@ -53,8 +53,7 @@ router.put("/:userId/update", requireAuth, async (req: AuthRequest, res) => {
   const updated = updatedDoc.data() as UserDoc;
   const statsDoc = await collections.playerStats.doc(userId).get();
   const stats = statsDoc.exists ? (statsDoc.data() as PlayerStatsDoc) : null;
-  const { passwordHash: _, ...safeUser } = updated;
-  return res.status(200).json({ ...safeUser, stats: stats || null });
+  return res.status(200).json({ ...toSafeUser(updated), stats: stats || null });
 });
 
 export default router;

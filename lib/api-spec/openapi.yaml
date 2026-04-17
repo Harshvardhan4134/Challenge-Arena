@@ -28,6 +28,8 @@ tags:
     description: Leaderboard operations
   - name: stats
     description: Statistics operations
+  - name: admin
+    description: Platform administration (restricted)
 
 paths:
   /healthz:
@@ -473,6 +475,130 @@ paths:
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
 
+  /admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [admin]
+      summary: Admin dashboard counts and recent signups
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users:
+    get:
+      operationId: getAdminUsers
+      tags: [admin]
+      summary: List all users with profile fields and stats (no passwords)
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/challenges:
+    get:
+      operationId: getAdminChallenges
+      tags: [admin]
+      summary: List challenges with full team/roster detail (latest first)
+      responses:
+        "200":
+          description: Challenges
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Challenge"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/notifications:
+    get:
+      operationId: getAdminNotifications
+      tags: [admin]
+      summary: Recent in-app notifications (all users)
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/match-results:
+    get:
+      operationId: getAdminMatchResults
+      tags: [admin]
+      summary: Recent match result submissions
+      responses:
+        "200":
+          description: Match results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MatchResult"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/push-subscriptions:
+    get:
+      operationId: getAdminPushSubscriptions
+      tags: [admin]
+      summary: Web push subscription records
+      responses:
+        "200":
+          description: Push subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PushSubscription"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /stats/overview:
     get:
       operationId: getStatsOverview
@@ -623,6 +749,15 @@ components:
         createdAt:
           type: string
           format: date-time
+        email:
+          type: string
+          nullable: true
+        whatsappPhone:
+          type: string
+          nullable: true
+        isAdmin:
+          type: boolean
+          description: True when user may access admin API (env or Firestore flag)
         stats:
           $ref: "#/components/schemas/PlayerStats"
           nullable: true
@@ -812,6 +947,9 @@ components:
           type: string
         winningSide:
           type: string
+        screenshotUrl:
+          type: string
+          nullable: true
         status:
           type: string
           enum: [pending, confirmed, disputed]
@@ -919,6 +1057,87 @@ components:
         - wins
         - winStreak
         - matchesPlayed
+
+    AdminRecentUser:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        ign:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - username
+        - createdAt
+
+    AdminOverview:
+      type: object
+      properties:
+        usersTotal:
+          type: integer
+        challengesTotal:
+          type: integer
+        challengesByStatus:
+          type: object
+          additionalProperties:
+            type: integer
+        teamsTotal:
+          type: integer
+        teamMembersTotal:
+          type: integer
+        messagesTotal:
+          type: integer
+        notificationsTotal:
+          type: integer
+        unreadNotifications:
+          type: integer
+        matchResultsTotal:
+          type: integer
+        pushSubscriptionsTotal:
+          type: integer
+        recentUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminRecentUser"
+      required:
+        - usersTotal
+        - challengesTotal
+        - challengesByStatus
+        - teamsTotal
+        - teamMembersTotal
+        - messagesTotal
+        - notificationsTotal
+        - unreadNotifications
+        - matchResultsTotal
+        - pushSubscriptionsTotal
+        - recentUsers
+
+    PushSubscription:
+      type: object
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        endpoint:
+          type: string
+        keys:
+          type: object
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - userId
+        - endpoint
+        - createdAt
 
     StatsOverview:
       type: object

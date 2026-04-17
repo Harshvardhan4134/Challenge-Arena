@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation, useRoute } from "wouter";
-import { Home, Swords, Trophy, Bell, User } from "lucide-react";
+import { Home, Swords, Trophy, Bell, User, Shield } from "lucide-react";
 import { useGetMe, useListNotifications, getGetMeQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { registerWebPushForUser } from "@/lib/push-notifications";
@@ -11,7 +11,8 @@ const navItems = [
   { path: "/leaderboard", icon: Trophy, label: "RANKS" },
   { path: "/notifications", icon: Bell, label: "ALERTS" },
   { path: "/profile/me", icon: User, label: "PROFILE" },
-];
+  { path: "/admin", icon: Shield, label: "ADMIN", adminOnly: true },
+] as const;
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const [, navigate] = useLocation();
@@ -20,6 +21,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     query: { queryKey: ["listNotifications"], refetchInterval: 30_000 },
   });
   const unread = notifications.data?.filter(n => !n.isRead).length ?? 0;
+  const bottomNav = navItems.filter((item) => !("adminOnly" in item && item.adminOnly) || me.data?.isAdmin);
 
   useEffect(() => {
     if (me.data?.id) void registerWebPushForUser();
@@ -44,8 +46,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t-4 border-black bg-[#FFE600]">
-        <div className="max-w-2xl mx-auto grid grid-cols-5 h-14">
-          {navItems.map(({ path, icon: Icon, label }) => {
+        <div
+          className={cn(
+            "max-w-2xl mx-auto grid h-14",
+            bottomNav.length >= 6 ? "grid-cols-6" : "grid-cols-5",
+          )}
+        >
+          {bottomNav.map(({ path, icon: Icon, label }) => {
             const [isActive] = useRoute(path === "/home" ? "/home" : path + "*");
             return (
               <button

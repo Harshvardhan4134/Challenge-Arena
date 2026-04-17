@@ -8,6 +8,7 @@ import notificationsRouter from "./notifications";
 import leaderboardRouter from "./leaderboard";
 import statsRouter from "./stats";
 import freefireRouter from "./freefire";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use("/notifications", notificationsRouter);
 router.use("/leaderboard", leaderboardRouter);
 router.use("/freefire", freefireRouter);
 router.use("/", statsRouter);
+router.use("/admin", adminRouter);
 
 export default router;

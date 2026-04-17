@@ -38,9 +38,7 @@ export interface RegisterBody {
   /** @minLength 6 */
   password: string;
   email?: string;
-  /** WhatsApp number for match alerts (with country code) */
-  whatsappPhone?: string;
-  freefireUid?: string;
+  freefireUid: string;
   ign?: string;
   gender?: RegisterBodyGender;
 }
@@ -62,12 +60,14 @@ export interface PlayerStats {
 export interface User {
   id: string;
   username: string;
-  email?: string | null;
-  whatsappPhone?: string | null;
   freefireUid?: string | null;
   ign?: string | null;
   gender?: string | null;
   createdAt: string;
+  email?: string | null;
+  whatsappPhone?: string | null;
+  /** True when user may access admin API (env or Firestore flag) */
+  isAdmin?: boolean;
   stats?: PlayerStats | null;
 }
 
@@ -90,8 +90,6 @@ export interface UpdateUserBody {
   freefireUid?: string;
   ign?: string;
   gender?: UpdateUserBodyGender;
-  whatsappPhone?: string | null;
-  email?: string | null;
 }
 
 export type ChallengeMode = (typeof ChallengeMode)[keyof typeof ChallengeMode];
@@ -175,6 +173,8 @@ export const JoinChallengeBodySide = {
 
 export interface JoinChallengeBody {
   side: JoinChallengeBodySide;
+  /** Team name (required when joining as team B leader) */
+  teamName?: string;
 }
 
 export type SubmitResultBodyWinningSide =
@@ -209,6 +209,7 @@ export interface MatchResult {
   challengeId: string;
   submittedBy: string;
   winningSide: string;
+  screenshotUrl?: string | null;
   status: MatchResultStatus;
   createdAt: string;
 }
@@ -261,6 +262,39 @@ export interface LeaderboardEntry {
   winStreak: number;
   matchesPlayed: number;
   badge?: string | null;
+}
+
+export interface AdminRecentUser {
+  id: string;
+  username: string;
+  ign?: string | null;
+  createdAt: string;
+}
+
+export type AdminOverviewChallengesByStatus = { [key: string]: number };
+
+export interface AdminOverview {
+  usersTotal: number;
+  challengesTotal: number;
+  challengesByStatus: AdminOverviewChallengesByStatus;
+  teamsTotal: number;
+  teamMembersTotal: number;
+  messagesTotal: number;
+  notificationsTotal: number;
+  unreadNotifications: number;
+  matchResultsTotal: number;
+  pushSubscriptionsTotal: number;
+  recentUsers: AdminRecentUser[];
+}
+
+export type PushSubscriptionKeys = { [key: string]: unknown };
+
+export interface PushSubscription {
+  id: string;
+  userId: string;
+  endpoint: string;
+  keys?: PushSubscriptionKeys;
+  createdAt: string;
 }
 
 export interface StatsOverview {

@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminOverview,
   AuthResponse,
   Challenge,
   CreateChallengeBody,
@@ -31,6 +32,7 @@ import type {
   Message,
   Notification,
   PlayerStats,
+  PushSubscription,
   RegisterBody,
   SendMessageBody,
   ShareRoomBody,
@@ -1791,6 +1793,455 @@ export function useGetWeeklyLeaderboard<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetWeeklyLeaderboardQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Admin dashboard counts and recent signups
+ */
+export const getGetAdminOverviewUrl = () => {
+  return `/api/admin/overview`;
+};
+
+export const getAdminOverview = async (
+  options?: RequestInit,
+): Promise<AdminOverview> => {
+  return customFetch<AdminOverview>(getGetAdminOverviewUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminOverviewQueryKey = () => {
+  return [`/api/admin/overview`] as const;
+};
+
+export const getGetAdminOverviewQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminOverview>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminOverview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminOverviewQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminOverview>>
+  > = ({ signal }) => getAdminOverview({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminOverview>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminOverviewQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminOverview>>
+>;
+export type GetAdminOverviewQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Admin dashboard counts and recent signups
+ */
+
+export function useGetAdminOverview<
+  TData = Awaited<ReturnType<typeof getAdminOverview>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminOverview>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminOverviewQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List all users with profile fields and stats (no passwords)
+ */
+export const getGetAdminUsersUrl = () => {
+  return `/api/admin/users`;
+};
+
+export const getAdminUsers = async (options?: RequestInit): Promise<User[]> => {
+  return customFetch<User[]>(getGetAdminUsersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminUsersQueryKey = () => {
+  return [`/api/admin/users`] as const;
+};
+
+export const getGetAdminUsersQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminUsers>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminUsers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminUsersQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminUsers>>> = ({
+    signal,
+  }) => getAdminUsers({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminUsers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminUsersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminUsers>>
+>;
+export type GetAdminUsersQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List all users with profile fields and stats (no passwords)
+ */
+
+export function useGetAdminUsers<
+  TData = Awaited<ReturnType<typeof getAdminUsers>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminUsers>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminUsersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List challenges with full team/roster detail (latest first)
+ */
+export const getGetAdminChallengesUrl = () => {
+  return `/api/admin/challenges`;
+};
+
+export const getAdminChallenges = async (
+  options?: RequestInit,
+): Promise<Challenge[]> => {
+  return customFetch<Challenge[]>(getGetAdminChallengesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminChallengesQueryKey = () => {
+  return [`/api/admin/challenges`] as const;
+};
+
+export const getGetAdminChallengesQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminChallenges>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminChallenges>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminChallengesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminChallenges>>
+  > = ({ signal }) => getAdminChallenges({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminChallenges>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminChallengesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminChallenges>>
+>;
+export type GetAdminChallengesQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary List challenges with full team/roster detail (latest first)
+ */
+
+export function useGetAdminChallenges<
+  TData = Awaited<ReturnType<typeof getAdminChallenges>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminChallenges>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminChallengesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Recent in-app notifications (all users)
+ */
+export const getGetAdminNotificationsUrl = () => {
+  return `/api/admin/notifications`;
+};
+
+export const getAdminNotifications = async (
+  options?: RequestInit,
+): Promise<Notification[]> => {
+  return customFetch<Notification[]>(getGetAdminNotificationsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminNotificationsQueryKey = () => {
+  return [`/api/admin/notifications`] as const;
+};
+
+export const getGetAdminNotificationsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminNotifications>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminNotifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminNotificationsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminNotifications>>
+  > = ({ signal }) => getAdminNotifications({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminNotifications>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminNotificationsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminNotifications>>
+>;
+export type GetAdminNotificationsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Recent in-app notifications (all users)
+ */
+
+export function useGetAdminNotifications<
+  TData = Awaited<ReturnType<typeof getAdminNotifications>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminNotifications>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminNotificationsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Recent match result submissions
+ */
+export const getGetAdminMatchResultsUrl = () => {
+  return `/api/admin/match-results`;
+};
+
+export const getAdminMatchResults = async (
+  options?: RequestInit,
+): Promise<MatchResult[]> => {
+  return customFetch<MatchResult[]>(getGetAdminMatchResultsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminMatchResultsQueryKey = () => {
+  return [`/api/admin/match-results`] as const;
+};
+
+export const getGetAdminMatchResultsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminMatchResults>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminMatchResults>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminMatchResultsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminMatchResults>>
+  > = ({ signal }) => getAdminMatchResults({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminMatchResults>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminMatchResultsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminMatchResults>>
+>;
+export type GetAdminMatchResultsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Recent match result submissions
+ */
+
+export function useGetAdminMatchResults<
+  TData = Awaited<ReturnType<typeof getAdminMatchResults>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminMatchResults>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminMatchResultsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Web push subscription records
+ */
+export const getGetAdminPushSubscriptionsUrl = () => {
+  return `/api/admin/push-subscriptions`;
+};
+
+export const getAdminPushSubscriptions = async (
+  options?: RequestInit,
+): Promise<PushSubscription[]> => {
+  return customFetch<PushSubscription[]>(getGetAdminPushSubscriptionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminPushSubscriptionsQueryKey = () => {
+  return [`/api/admin/push-subscriptions`] as const;
+};
+
+export const getGetAdminPushSubscriptionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminPushSubscriptions>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminPushSubscriptions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminPushSubscriptionsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminPushSubscriptions>>
+  > = ({ signal }) => getAdminPushSubscriptions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminPushSubscriptions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminPushSubscriptionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminPushSubscriptions>>
+>;
+export type GetAdminPushSubscriptionsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Web push subscription records
+ */
+
+export function useGetAdminPushSubscriptions<
+  TData = Awaited<ReturnType<typeof getAdminPushSubscriptions>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminPushSubscriptions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminPushSubscriptionsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

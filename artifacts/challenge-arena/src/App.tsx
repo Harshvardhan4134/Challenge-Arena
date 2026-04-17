@@ -14,6 +14,7 @@ import ChallengeDetail from "@/pages/challenge-detail";
 import Leaderboard from "@/pages/leaderboard";
 import Notifications from "@/pages/notifications";
 import Profile from "@/pages/profile";
+import Admin from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import TermsAndConditions from "@/pages/terms-and-conditions";
@@ -82,6 +83,9 @@ function Router() {
       </Route>
       <Route path="/profile/:id">
         <AuthGuard><Profile /></AuthGuard>
+      </Route>
+      <Route path="/admin">
+        <AuthGuard><Admin /></AuthGuard>
       </Route>
       <Route component={NotFound} />
     </Switch>

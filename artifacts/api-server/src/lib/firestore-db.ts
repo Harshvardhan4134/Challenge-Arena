@@ -13,6 +13,8 @@ export type UserDoc = {
   ign: string | null;
   gender: "male" | "female" | "other" | null;
   createdAt: string;
+  /** When true, user can access /api/admin/* (also see ADMIN_USERNAMES env). */
+  isAdmin?: boolean;
 };
 
 export type PlayerStatsDoc = {

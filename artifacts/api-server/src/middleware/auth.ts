@@ -12,7 +12,7 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   const userId = getUserIdFromToken(token);
   if (!userId) return res.status(401).json({ error: "unauthorized", message: "Invalid token" });
   req.userId = userId;
-  next();
+  return next();
 }
 
 export function optionalAuth(req: AuthRequest, _res: Response, next: NextFunction) {
@@ -22,5 +22,5 @@ export function optionalAuth(req: AuthRequest, _res: Response, next: NextFunctio
     const userId = getUserIdFromToken(token);
     if (userId) req.userId = userId;
   }
-  next();
+  return next();
 }
