@@ -18,6 +18,7 @@ testem.log
 .cache/
 .local/
 .sass-cache/
+.replit-artifact/
 
 # IDE/editor
 .idea/
