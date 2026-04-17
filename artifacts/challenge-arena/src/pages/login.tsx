@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { setAuthToken } from "@/lib/auth";
 import { exchangeGoogleToken } from "@/lib/google-auth";
-import { apiUrl } from "@/lib/api-url";
+import { fetchIgnForUid } from "@/lib/freefire-lookup";
 import { Swords, Eye, EyeOff, Phone } from "lucide-react";
 
 export default function Login() {
@@ -47,24 +47,6 @@ export default function Login() {
   const setGoogleField = (k: "username" | "freefireUid" | "ign" | "gender" | "whatsappPhone") =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       setGoogleProfileForm((prev) => ({ ...prev, [k]: e.target.value }));
-
-  const fetchIgnForUid = async (uid: string, region: string) => {
-    const res = await fetch(
-      apiUrl(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`),
-    );
-    const rawText = await res.text();
-    let body: unknown = null;
-    try {
-      body = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      body = null;
-    }
-    const b = body as { ign?: string; message?: string } | null;
-    if (!res.ok || !b?.ign) {
-      throw new Error(b?.message || "Could not fetch player name. Enter manually for now.");
-    }
-    return String(b.ign);
-  };
 
   const fetchIgnForGoogleProfile = async () => {
     setGoogleLookupError("");

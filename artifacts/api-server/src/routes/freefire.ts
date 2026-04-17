@@ -14,16 +14,26 @@ type LookupResult = {
 };
 
 function extractIgn(raw: any): string | null {
-  return (
-    raw?.basicInfo?.nickname ??
-    raw?.basicinfo?.nickname ??
-    raw?.data?.basicInfo?.nickname ??
-    raw?.nickname ??
-    raw?.player?.nickname ??
-    raw?.AccountInfo?.AccountName ??
-    raw?.name ??
-    null
-  );
+  if (raw == null || typeof raw !== "object") return null;
+  const firstInfo = Array.isArray(raw.infos) ? raw.infos[0] : null;
+  const candidates = [
+    raw?.basicInfo?.nickname,
+    raw?.basicinfo?.nickname,
+    raw?.data?.basicInfo?.nickname,
+    raw?.data?.basicinfo?.nickname,
+    raw?.data?.nickname,
+    raw?.nickname,
+    raw?.player?.nickname,
+    raw?.AccountInfo?.AccountName,
+    raw?.name,
+    firstInfo?.nickname,
+    raw?.profile?.nickname,
+    raw?.user?.nickname,
+  ];
+  for (const c of candidates) {
+    if (c != null && String(c).trim()) return String(c).trim();
+  }
+  return null;
 }
 
 function extractLevel(raw: any): number | null {
@@ -65,7 +75,7 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeoutMs = L
   }
 }
 
-async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
     try {
@@ -73,7 +83,7 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
     } catch (error) {
       lastError = error;
       if (i < attempts - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 250 * (i + 1)));
+        await new Promise((resolve) => setTimeout(resolve, 400 * (i + 1)));
       }
     }
   }
@@ -103,13 +113,29 @@ async function fetchFromFreeFireCommunity(uid: string, region: string): Promise<
 }
 
 async function fetchLegacyPublic(uid: string, region: string): Promise<LookupResult | null> {
-  const legacyUrl = `https://info-ob49.vercel.app/api/account/?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`;
-  const legacyRes = await fetchWithTimeout(legacyUrl, { headers: { accept: "application/json" } });
-  if (!legacyRes.ok) return null;
-  const legacyData = await legacyRes.json();
-  const ign = extractIgn(legacyData);
-  if (!ign) return null;
-  return { ign, level: extractLevel(legacyData), raw: legacyData, provider: "legacy-public-provider" };
+  const legacyUrls = [
+    `https://info-ob49.vercel.app/api/account/?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
+    `https://info-ob49.vercel.app/api/account?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
+  ];
+  for (const legacyUrl of legacyUrls) {
+    try {
+      const legacyRes = await fetchWithTimeout(legacyUrl, { headers: { accept: "application/json" } });
+      if (!legacyRes.ok) continue;
+      const legacyData = await legacyRes.json();
+      const ign = extractIgn(legacyData);
+      if (!ign) continue;
+      return { ign, level: extractLevel(legacyData), raw: legacyData, provider: "legacy-public-provider" };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
+/** Mirrors that often return 402/401 are tried last so faster failures don't hide working hosts. */
+function orderPublicMirrors(mirrors: string[]): string[] {
+  const deprioritized = (m: string) => /glob-info2\.vercel\.app/i.test(m);
+  return [...mirrors.filter((m) => !deprioritized(m)), ...mirrors.filter((m) => deprioritized(m))];
 }
 
 async function fetchFromPublicRepoProvider(uid: string, region: string): Promise<LookupResult> {
@@ -119,7 +145,7 @@ async function fetchFromPublicRepoProvider(uid: string, region: string): Promise
     .map((x) => x.trim())
     .filter(Boolean);
   const defaultMirror = process.env["FREEFIRE_LOOKUP_PUBLIC_BASE_URL"] ?? "https://freefireinfo-zy9l.onrender.com";
-  const mirrors = [...new Set([...configuredMirrors, defaultMirror])];
+  const mirrors = orderPublicMirrors([...new Set([...configuredMirrors, defaultMirror])]);
 
   let lastError: Error | null = null;
   for (const mirror of mirrors) {
@@ -127,8 +153,10 @@ async function fetchFromPublicRepoProvider(uid: string, region: string): Promise
     const candidates = [
       `${base}/api/v1/account?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
       `${base}/api/v1/player-profile?uid=${encodeURIComponent(uid)}&server=${encodeURIComponent(region)}`,
+      `${base}/api/v1/player-profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
       `${base}/api/v1/info?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
       `${base}/api/account?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
+      `${base}/api/account/?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
       `${base}/api/player?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`,
       `${base}/player?uid=${encodeURIComponent(uid)}`,
       `${base}/info?uid=${encodeURIComponent(uid)}`,
@@ -139,11 +167,20 @@ async function fetchFromPublicRepoProvider(uid: string, region: string): Promise
         const res = await fetchWithTimeout(url, { headers: { accept: "application/json" } });
         if (!res.ok) {
           const text = await res.text();
-          lastError = new Error(`Public provider failed (${res.status}) from ${url}: ${text.slice(0, 200)}`);
+          const short =
+            res.status === 402 || res.status === 401
+              ? `payment or auth required (${res.status})`
+              : text.slice(0, 200);
+          lastError = new Error(`Public provider failed (${res.status}) from ${url}: ${short}`);
           continue;
         }
         const data = await res.json();
-        return { ign: extractIgn(data), level: extractLevel(data), raw: data, provider: `public-mirror:${url}` };
+        const ign = extractIgn(data);
+        if (!ign) {
+          lastError = new Error(`Public provider returned no nickname from ${url}`);
+          continue;
+        }
+        return { ign, level: extractLevel(data), raw: data, provider: `public-mirror:${url}` };
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error));
       }
@@ -165,7 +202,20 @@ router.get("/profile", async (req, res) => {
     return res.status(200).json({ uid, region, ign: cached.ign, level: cached.level, provider: `${cached.provider} (cache)` });
   }
 
-  // Try stable legacy host first (many Render mirrors return 404 on /info).
+  // Official / paid community API first when configured — public mirrors are often down or rate-limited.
+  if (process.env["FREEFIRE_LOOKUP_API_KEY"]) {
+    try {
+      const paid = await withRetry(() => fetchFromFreeFireCommunity(uid, region));
+      if (paid.ign) {
+        setCachedResult(uid, region, paid);
+        return res.status(200).json({ uid, region, ign: paid.ign, level: paid.level, provider: paid.provider });
+      }
+    } catch {
+      // continue to free providers
+    }
+  }
+
+  // Legacy Vercel OB49-style host (frequently disabled); cheap to try.
   try {
     const legacyFirst = await fetchLegacyPublic(uid, region);
     if (legacyFirst?.ign) {
@@ -176,30 +226,44 @@ router.get("/profile", async (req, res) => {
     // continue to mirrors
   }
 
+  const lookupHint =
+    "Public UID lookup services are unreliable. Add FREEFIRE_LOOKUP_API_KEY on the API server (Free Fire Community API — see .env.example) or type your IGN manually in the app.";
+
   try {
     const result = await withRetry(() => fetchFromPublicRepoProvider(uid, region));
     if (!result.ign) {
-      return res.status(404).json({ error: "not_found", message: "No player name found for this UID", providerResponse: result.raw });
+      return res.status(404).json({
+        error: "not_found",
+        message: "No player name found for this UID",
+        hint: lookupHint,
+        providerResponse: result.raw,
+      });
     }
     setCachedResult(uid, region, result);
     return res.status(200).json({ uid, region, ign: result.ign, level: result.level, provider: result.provider });
   } catch (error) {
-    // Fallback chain: paid/community API key provider.
     try {
       if (process.env["FREEFIRE_LOOKUP_API_KEY"]) {
         const paidFallback = await withRetry(() => fetchFromFreeFireCommunity(uid, region));
         if (paidFallback.ign) {
           setCachedResult(uid, region, paidFallback);
-          return res.status(200).json({ uid, region, ign: paidFallback.ign, level: paidFallback.level, provider: paidFallback.provider });
+          return res.status(200).json({
+            uid,
+            region,
+            ign: paidFallback.ign,
+            level: paidFallback.level,
+            provider: paidFallback.provider,
+          });
         }
       }
     } catch {
-      // continue to final error response
+      // final error below
     }
 
     return res.status(502).json({
       error: "lookup_failed",
       message: error instanceof Error ? error.message : "Failed to fetch profile",
+      hint: lookupHint,
     });
   }
 });

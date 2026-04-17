@@ -4,7 +4,7 @@ import { useRegister } from "@workspace/api-client-react";
 import { setAuthToken } from "@/lib/auth";
 import { firebaseAuth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
 import { exchangeGoogleToken } from "@/lib/google-auth";
-import { apiUrl } from "@/lib/api-url";
+import { fetchIgnForUid } from "@/lib/freefire-lookup";
 import { signInWithPopup } from "firebase/auth";
 import { Swords, Eye, EyeOff, Mail, Lock, Gamepad2, Hash, Phone } from "lucide-react";
 
@@ -64,23 +64,6 @@ export default function Register() {
   const handleFreefireUidChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const uid = e.target.value;
     setForm((prev) => ({ ...prev, freefireUid: uid }));
-  };
-
-  const fetchIgnForUid = async (uid: string, region: string) => {
-    const res = await fetch(
-      apiUrl(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(region)}`),
-    );
-    const rawText = await res.text();
-    let body: any = null;
-    try {
-      body = rawText ? JSON.parse(rawText) : null;
-    } catch {
-      body = null;
-    }
-    if (!res.ok || !body?.ign) {
-      throw new Error(body?.message || "Could not fetch player name. Enter manually for now.");
-    }
-    return String(body.ign);
   };
 
   const fetchIgnFromUid = async () => {

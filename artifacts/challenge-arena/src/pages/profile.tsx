@@ -8,7 +8,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { clearAuthToken } from "@/lib/auth";
-import { apiUrl } from "@/lib/api-url";
+import { fetchIgnForUid } from "@/lib/freefire-lookup";
 import { ArrowLeft, Edit2, Save, X, Trophy, Target, Flame, Hash, LogOut } from "lucide-react";
 
 export default function Profile() {
@@ -75,22 +75,13 @@ export default function Profile() {
 
     setIsFetchingIgn(true);
     try {
-      const res = await fetch(
-        apiUrl(`/api/freefire/profile?uid=${encodeURIComponent(uid)}&region=${encodeURIComponent(lookupRegion)}`),
-      );
-      const body = await res.json();
-      if (!res.ok || !body?.ign) {
-        setLookupError(
-          (body?.message || "Could not fetch IGN for this UID.") +
-            " Type your exact in-game name (IGN) in the field below.",
-        );
-        return;
-      }
-      setForm((prev) => ({ ...prev, ign: String(body.ign) }));
-      setLookupSuccess(`Fetched IGN: ${body.ign}`);
-    } catch {
+      const ign = await fetchIgnForUid(uid, lookupRegion);
+      setForm((prev) => ({ ...prev, ign }));
+      setLookupSuccess(`Fetched IGN: ${ign}`);
+    } catch (err) {
       setLookupError(
-        "UID lookup failed. Enter your exact in-game name (IGN) in the field below — it updates your display name.",
+        (err instanceof Error ? err.message : "UID lookup failed.") +
+          " Type your exact in-game name (IGN) in the field below — it updates your display name.",
       );
     } finally {
       setIsFetchingIgn(false);
