@@ -34,6 +34,12 @@ function emailLocalPart(email: string): string {
  * Also: username matching the part before @ on any listed admin email (Google signup often
  * suggests that as username even when `user.email` was not stored in Firestore yet).
  */
+export function isUserBanned(user: UserDoc): boolean {
+  if (!user.bannedUntil) return false;
+  const t = new Date(user.bannedUntil).getTime();
+  return !Number.isNaN(t) && t > Date.now();
+}
+
 export function isAdminUser(user: UserDoc): boolean {
   if (user.isAdmin === true) return true;
   const { usernames, emails } = adminSets();

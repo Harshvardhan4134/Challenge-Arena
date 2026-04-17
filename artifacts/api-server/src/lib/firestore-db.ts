@@ -15,6 +15,8 @@ export type UserDoc = {
   createdAt: string;
   /** When true, user can access /api/admin/* (also see ADMIN_USERNAMES env). */
   isAdmin?: boolean;
+  /** ISO timestamp; account cannot log in or call authenticated APIs until this moment passes. */
+  bannedUntil?: string | null;
 };
 
 export type PlayerStatsDoc = {

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetMe,
   useGetAdminOverview,
@@ -8,16 +9,49 @@ import {
   useGetAdminNotifications,
   useGetAdminMatchResults,
   useGetAdminPushSubscriptions,
+  useAdminBanUser,
+  useAdminUnbanUser,
+  useAdminDeleteUser,
+  type User,
 } from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
 import { cn } from "@/lib/utils";
 
 type Tab = "overview" | "users" | "challenges" | "notifications" | "results" | "push";
 
+function isActiveBan(u: Pick<User, "bannedUntil">): boolean {
+  if (!u.bannedUntil) return false;
+  const t = new Date(u.bannedUntil).getTime();
+  return !Number.isNaN(t) && t > Date.now();
+}
+
+const BAN_PRESETS_HOURS = [
+  { label: "1h", h: 1 },
+  { label: "24h", h: 24 },
+  { label: "7d", h: 168 },
+  { label: "30d", h: 720 },
+] as const;
+
 export default function AdminPage() {
   const [, navigate] = useLocation();
+  const queryClient = useQueryClient();
   const me = useGetMe({ query: { queryKey: ["getMe"] } });
   const isAdmin = Boolean(me.data?.isAdmin);
+
+  const invalidateAdminLists = () => {
+    void queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+    void queryClient.invalidateQueries({ queryKey: ["/api/admin/overview"] });
+  };
+
+  const banUser = useAdminBanUser({
+    mutation: { onSuccess: invalidateAdminLists },
+  });
+  const unbanUser = useAdminUnbanUser({
+    mutation: { onSuccess: invalidateAdminLists },
+  });
+  const deleteUser = useAdminDeleteUser({
+    mutation: { onSuccess: invalidateAdminLists },
+  });
 
   const overview = useGetAdminOverview({
     query: { queryKey: ["adminOverview"], enabled: isAdmin },
@@ -98,7 +132,7 @@ export default function AdminPage() {
           <div className="tag-orange inline-block mb-1">ADMIN</div>
           <h1 className="display-font text-3xl text-black leading-none">PLATFORM DATA</h1>
           <p className="text-[10px] font-mono text-gray-600 mt-2">
-            Full read-only view of users, matches, notifications, and submissions. No passwords are exposed.
+            User moderation (ban / delete), plus full view of matches, notifications, and submissions. No passwords are exposed.
           </p>
         </div>
 
@@ -189,8 +223,10 @@ export default function AdminPage() {
                       "IGN",
                       "gender",
                       "admin",
+                      "ban",
                       "joined",
                       "W/L/MP",
+                      "actions",
                     ].map((h) => (
                       <th key={h} className="p-2 font-black border-r border-[#FFE600]/30 last:border-0 whitespace-nowrap">
                         {h}
@@ -199,24 +235,88 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.data.map((u) => (
-                    <tr key={u.id} className="border-t border-gray-200 hover:bg-[#FFE600]/20">
-                      <td className="p-2 font-bold text-black whitespace-nowrap">{u.username}</td>
-                      <td className="p-2 max-w-[120px] truncate" title={u.id}>
-                        {u.id}
-                      </td>
-                      <td className="p-2 max-w-[100px] truncate">{u.email ?? "—"}</td>
-                      <td className="p-2 max-w-[90px] truncate">{u.whatsappPhone ?? "—"}</td>
-                      <td className="p-2 max-w-[80px] truncate">{u.freefireUid ?? "—"}</td>
-                      <td className="p-2 max-w-[80px] truncate">{u.ign ?? "—"}</td>
-                      <td className="p-2">{u.gender ?? "—"}</td>
-                      <td className="p-2">{u.isAdmin ? "yes" : "—"}</td>
-                      <td className="p-2 whitespace-nowrap">{new Date(u.createdAt).toLocaleString()}</td>
-                      <td className="p-2 whitespace-nowrap">
-                        {u.stats ? `${u.stats.wins}/${u.stats.losses}/${u.stats.matchesPlayed}` : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {users.data.map((u) => {
+                    const banned = isActiveBan(u);
+                    const protectedRow = Boolean(u.isAdmin || u.id === me.data?.id);
+                    const busy =
+                      banUser.isPending || unbanUser.isPending || deleteUser.isPending;
+                    return (
+                      <tr
+                        key={u.id}
+                        className={cn(
+                          "border-t border-gray-200 hover:bg-[#FFE600]/20",
+                          banned && "bg-[#FF1E56]/10",
+                        )}
+                      >
+                        <td className="p-2 font-bold text-black whitespace-nowrap">{u.username}</td>
+                        <td className="p-2 max-w-[120px] truncate" title={u.id}>
+                          {u.id}
+                        </td>
+                        <td className="p-2 max-w-[100px] truncate">{u.email ?? "—"}</td>
+                        <td className="p-2 max-w-[90px] truncate">{u.whatsappPhone ?? "—"}</td>
+                        <td className="p-2 max-w-[80px] truncate">{u.freefireUid ?? "—"}</td>
+                        <td className="p-2 max-w-[80px] truncate">{u.ign ?? "—"}</td>
+                        <td className="p-2">{u.gender ?? "—"}</td>
+                        <td className="p-2">{u.isAdmin ? "yes" : "—"}</td>
+                        <td className="p-2 max-w-[130px] whitespace-nowrap" title={u.bannedUntil ?? undefined}>
+                          {banned && u.bannedUntil ? new Date(u.bannedUntil).toLocaleString() : "—"}
+                        </td>
+                        <td className="p-2 whitespace-nowrap">{new Date(u.createdAt).toLocaleString()}</td>
+                        <td className="p-2 whitespace-nowrap">
+                          {u.stats ? `${u.stats.wins}/${u.stats.losses}/${u.stats.matchesPlayed}` : "—"}
+                        </td>
+                        <td className="p-2 align-top">
+                          {protectedRow ? (
+                            <span className="text-gray-400">—</span>
+                          ) : (
+                            <div className="flex flex-col gap-1 min-w-[140px]">
+                              {banned ? (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  className="btn-brutal px-2 py-1 bg-[#FFE600] text-black text-[9px] font-black disabled:opacity-50"
+                                  onClick={() => unbanUser.mutate({ userId: u.id })}
+                                >
+                                  UNBAN
+                                </button>
+                              ) : (
+                                <div className="flex flex-wrap gap-0.5">
+                                  {BAN_PRESETS_HOURS.map(({ label, h }) => (
+                                    <button
+                                      key={label}
+                                      type="button"
+                                      disabled={busy}
+                                      className="px-1.5 py-0.5 border border-black bg-white text-[8px] font-black hover:bg-[#FFE600]/50 disabled:opacity-50"
+                                      onClick={() => banUser.mutate({ userId: u.id, data: { hoursFromNow: h } })}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                disabled={busy}
+                                className="btn-brutal px-2 py-1 bg-[#FF1E56] text-white text-[9px] font-black disabled:opacity-50"
+                                onClick={() => {
+                                  if (
+                                    !window.confirm(
+                                      `Delete account ${u.username}? This removes the user, stats, push subscriptions, team memberships, and notifications for this user.`,
+                                    )
+                                  ) {
+                                    return;
+                                  }
+                                  deleteUser.mutate({ userId: u.id });
+                                }}
+                              >
+                                DELETE
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

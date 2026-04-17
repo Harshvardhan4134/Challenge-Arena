@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { firebaseAdminAuth } from "../lib/firebase-admin";
 import { collections, nowIso, type PlayerStatsDoc, type UserDoc } from "../lib/firestore-db";
 import { normalizeWhatsappInput } from "../lib/whatsapp-util";
-import { toSafeUser } from "../lib/user-view";
+import { isUserBanned, toSafeUser } from "../lib/user-view";
 
 const router = Router();
 
@@ -108,6 +108,12 @@ router.post("/login", async (req, res) => {
   if (!user || user.passwordHash !== passwordHash) {
     return res.status(401).json({ error: "unauthorized", message: "Invalid credentials" });
   }
+  if (isUserBanned(user)) {
+    return res.status(403).json({
+      error: "forbidden",
+      message: `Account suspended until ${user.bannedUntil}`,
+    });
+  }
 
   const token = generateToken(user.id);
   tokenStore.set(token, user.id);
@@ -181,6 +187,12 @@ router.post("/google", async (req, res) => {
       await collections.users.doc(existingUserDoc.id).set({ email }, { merge: true });
       merged = { ...existingUserDoc, email };
     }
+    if (isUserBanned(merged)) {
+      return res.status(403).json({
+        error: "forbidden",
+        message: `Account suspended until ${merged.bannedUntil}`,
+      });
+    }
     const token = generateToken(merged.id);
     tokenStore.set(token, merged.id);
     const stats = await getUserStats(merged.id);
@@ -249,6 +261,12 @@ router.get("/me", async (req, res) => {
   const userDoc = await collections.users.doc(userId).get();
   if (!userDoc.exists) return res.status(401).json({ error: "unauthorized", message: "User not found" });
   const user = userDoc.data() as UserDoc;
+  if (isUserBanned(user)) {
+    return res.status(403).json({
+      error: "forbidden",
+      message: `Account suspended until ${user.bannedUntil}`,
+    });
+  }
   const stats = await getUserStats(userId);
   const safeUser = toSafeUser(user);
   return res.status(200).json({ ...safeUser, stats: stats || null });

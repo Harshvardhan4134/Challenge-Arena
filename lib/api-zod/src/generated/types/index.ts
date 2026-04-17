@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./adminBanUserBody";
 export * from "./adminOverview";
 export * from "./adminOverviewChallengesByStatus";
 export * from "./adminRecentUser";

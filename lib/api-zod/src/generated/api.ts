@@ -56,6 +56,12 @@ export const LoginResponse = zod.object({
       .boolean()
       .optional()
       .describe("True when user may access admin API (env or Firestore flag)"),
+    bannedUntil: zod.coerce
+      .date()
+      .nullish()
+      .describe(
+        "When set and still in the future, the account cannot sign in or use authenticated APIs",
+      ),
     stats: zod
       .object({
         userId: zod.string(),
@@ -94,6 +100,12 @@ export const GetMeResponse = zod.object({
     .boolean()
     .optional()
     .describe("True when user may access admin API (env or Firestore flag)"),
+  bannedUntil: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When set and still in the future, the account cannot sign in or use authenticated APIs",
+    ),
   stats: zod
     .object({
       userId: zod.string(),
@@ -126,6 +138,12 @@ export const GetUserResponse = zod.object({
     .boolean()
     .optional()
     .describe("True when user may access admin API (env or Firestore flag)"),
+  bannedUntil: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When set and still in the future, the account cannot sign in or use authenticated APIs",
+    ),
   stats: zod
     .object({
       userId: zod.string(),
@@ -164,6 +182,12 @@ export const UpdateUserResponse = zod.object({
     .boolean()
     .optional()
     .describe("True when user may access admin API (env or Firestore flag)"),
+  bannedUntil: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When set and still in the future, the account cannot sign in or use authenticated APIs",
+    ),
   stats: zod
     .object({
       userId: zod.string(),
@@ -416,7 +440,7 @@ export const SubmitResultParams = zod.object({
 });
 
 export const SubmitResultBody = zod.object({
-  winningSide: zod.enum(["teamA", "teamB"]),
+  winningSide: zod.enum(["teamA", "teamB", "not_played"]),
   screenshotUrl: zod.string().nullish(),
 });
 
@@ -579,6 +603,12 @@ export const GetAdminUsersResponseItem = zod.object({
     .boolean()
     .optional()
     .describe("True when user may access admin API (env or Firestore flag)"),
+  bannedUntil: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When set and still in the future, the account cannot sign in or use authenticated APIs",
+    ),
   stats: zod
     .object({
       userId: zod.string(),
@@ -591,6 +621,105 @@ export const GetAdminUsersResponseItem = zod.object({
     .nullish(),
 });
 export const GetAdminUsersResponse = zod.array(GetAdminUsersResponseItem);
+
+/**
+ * @summary Temporarily ban a user (cannot log in until ban ends)
+ */
+export const AdminBanUserParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const AdminBanUserBody = zod.object({
+  hoursFromNow: zod
+    .number()
+    .optional()
+    .describe("Ban duration in hours (1–8760). Ignored if bannedUntil is set."),
+  bannedUntil: zod.coerce
+    .date()
+    .optional()
+    .describe("Exact UTC time when the ban ends (must be in the future)"),
+});
+
+export const AdminBanUserResponse = zod.object({
+  id: zod.string(),
+  username: zod.string(),
+  freefireUid: zod.string().nullish(),
+  ign: zod.string().nullish(),
+  gender: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
+  isAdmin: zod
+    .boolean()
+    .optional()
+    .describe("True when user may access admin API (env or Firestore flag)"),
+  bannedUntil: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When set and still in the future, the account cannot sign in or use authenticated APIs",
+    ),
+  stats: zod
+    .object({
+      userId: zod.string(),
+      matchesPlayed: zod.number(),
+      wins: zod.number(),
+      losses: zod.number(),
+      winStreak: zod.number(),
+      weeklyWins: zod.number(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Lift an active ban
+ */
+export const AdminUnbanUserParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const AdminUnbanUserResponse = zod.object({
+  id: zod.string(),
+  username: zod.string(),
+  freefireUid: zod.string().nullish(),
+  ign: zod.string().nullish(),
+  gender: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
+  isAdmin: zod
+    .boolean()
+    .optional()
+    .describe("True when user may access admin API (env or Firestore flag)"),
+  bannedUntil: zod.coerce
+    .date()
+    .nullish()
+    .describe(
+      "When set and still in the future, the account cannot sign in or use authenticated APIs",
+    ),
+  stats: zod
+    .object({
+      userId: zod.string(),
+      matchesPlayed: zod.number(),
+      wins: zod.number(),
+      losses: zod.number(),
+      winStreak: zod.number(),
+      weeklyWins: zod.number(),
+    })
+    .nullish(),
+});
+
+/**
+ * @summary Delete a user account and related profile data (stats, push subs, team memberships, notifications)
+ */
+export const AdminDeleteUserParams = zod.object({
+  userId: zod.coerce.string(),
+});
+
+export const AdminDeleteUserResponse = zod.object({
+  success: zod.boolean(),
+  message: zod.string().optional(),
+});
 
 /**
  * @summary List challenges with full team/roster detail (latest first)

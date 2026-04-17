@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AdminBanUserBody,
   AdminOverview,
   AuthResponse,
   Challenge,
@@ -1948,6 +1949,261 @@ export function useGetAdminUsers<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Temporarily ban a user (cannot log in until ban ends)
+ */
+export const getAdminBanUserUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/ban`;
+};
+
+export const adminBanUser = async (
+  userId: string,
+  adminBanUserBody: AdminBanUserBody,
+  options?: RequestInit,
+): Promise<User> => {
+  return customFetch<User>(getAdminBanUserUrl(userId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(adminBanUserBody),
+  });
+};
+
+export const getAdminBanUserMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminBanUser>>,
+    TError,
+    { userId: string; data: BodyType<AdminBanUserBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminBanUser>>,
+  TError,
+  { userId: string; data: BodyType<AdminBanUserBody> },
+  TContext
+> => {
+  const mutationKey = ["adminBanUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminBanUser>>,
+    { userId: string; data: BodyType<AdminBanUserBody> }
+  > = (props) => {
+    const { userId, data } = props ?? {};
+
+    return adminBanUser(userId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminBanUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminBanUser>>
+>;
+export type AdminBanUserMutationBody = BodyType<AdminBanUserBody>;
+export type AdminBanUserMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Temporarily ban a user (cannot log in until ban ends)
+ */
+export const useAdminBanUser = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminBanUser>>,
+    TError,
+    { userId: string; data: BodyType<AdminBanUserBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminBanUser>>,
+  TError,
+  { userId: string; data: BodyType<AdminBanUserBody> },
+  TContext
+> => {
+  return useMutation(getAdminBanUserMutationOptions(options));
+};
+
+/**
+ * @summary Lift an active ban
+ */
+export const getAdminUnbanUserUrl = (userId: string) => {
+  return `/api/admin/users/${userId}/unban`;
+};
+
+export const adminUnbanUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<User> => {
+  return customFetch<User>(getAdminUnbanUserUrl(userId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminUnbanUserMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUnbanUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUnbanUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["adminUnbanUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUnbanUser>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return adminUnbanUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUnbanUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUnbanUser>>
+>;
+
+export type AdminUnbanUserMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Lift an active ban
+ */
+export const useAdminUnbanUser = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUnbanUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUnbanUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getAdminUnbanUserMutationOptions(options));
+};
+
+/**
+ * @summary Delete a user account and related profile data (stats, push subs, team memberships, notifications)
+ */
+export const getAdminDeleteUserUrl = (userId: string) => {
+  return `/api/admin/users/${userId}`;
+};
+
+export const adminDeleteUser = async (
+  userId: string,
+  options?: RequestInit,
+): Promise<SuccessResponse> => {
+  return customFetch<SuccessResponse>(getAdminDeleteUserUrl(userId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteUserMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteUser"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteUser>>,
+    { userId: string }
+  > = (props) => {
+    const { userId } = props ?? {};
+
+    return adminDeleteUser(userId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteUserMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteUser>>
+>;
+
+export type AdminDeleteUserMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Delete a user account and related profile data (stats, push subs, team memberships, notifications)
+ */
+export const useAdminDeleteUser = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteUser>>,
+    TError,
+    { userId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteUser>>,
+  TError,
+  { userId: string },
+  TContext
+> => {
+  return useMutation(getAdminDeleteUserMutationOptions(options));
+};
 
 /**
  * @summary List challenges with full team/roster detail (latest first)

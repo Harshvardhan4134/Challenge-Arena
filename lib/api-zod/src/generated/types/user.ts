@@ -18,5 +18,7 @@ export interface User {
   whatsappPhone?: string | null;
   /** True when user may access admin API (env or Firestore flag) */
   isAdmin?: boolean;
+  /** When set and still in the future, the account cannot sign in or use authenticated APIs */
+  bannedUntil?: Date | null;
   stats?: PlayerStats | null;
 }

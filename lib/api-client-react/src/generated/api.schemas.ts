@@ -68,12 +68,21 @@ export interface User {
   whatsappPhone?: string | null;
   /** True when user may access admin API (env or Firestore flag) */
   isAdmin?: boolean;
+  /** When set and still in the future, the account cannot sign in or use authenticated APIs */
+  bannedUntil?: string | null;
   stats?: PlayerStats | null;
 }
 
 export interface AuthResponse {
   user: User;
   token: string;
+}
+
+export interface AdminBanUserBody {
+  /** Ban duration in hours (1–8760). Ignored if bannedUntil is set. */
+  hoursFromNow?: number;
+  /** Exact UTC time when the ban ends (must be in the future) */
+  bannedUntil?: string;
 }
 
 export type UpdateUserBodyGender =

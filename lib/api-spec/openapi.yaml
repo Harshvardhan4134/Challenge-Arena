@@ -515,6 +515,117 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/users/{userId}/ban:
+    post:
+      operationId: adminBanUser
+      tags: [admin]
+      summary: Temporarily ban a user (cannot log in until ban ends)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminBanUserBody"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Validation or policy error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users/{userId}/unban:
+    post:
+      operationId: adminUnbanUser
+      tags: [admin]
+      summary: Lift an active ban
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users/{userId}:
+    delete:
+      operationId: adminDeleteUser
+      tags: [admin]
+      summary: Delete a user account and related profile data (stats, push subs, team memberships, notifications)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          description: Cannot delete this user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /admin/challenges:
     get:
       operationId: getAdminChallenges
@@ -758,6 +869,11 @@ components:
         isAdmin:
           type: boolean
           description: True when user may access admin API (env or Firestore flag)
+        bannedUntil:
+          type: string
+          format: date-time
+          nullable: true
+          description: When set and still in the future, the account cannot sign in or use authenticated APIs
         stats:
           $ref: "#/components/schemas/PlayerStats"
           nullable: true
@@ -765,6 +881,17 @@ components:
         - id
         - username
         - createdAt
+
+    AdminBanUserBody:
+      type: object
+      properties:
+        hoursFromNow:
+          type: number
+          description: Ban duration in hours (1–8760). Ignored if bannedUntil is set.
+        bannedUntil:
+          type: string
+          format: date-time
+          description: Exact UTC time when the ban ends (must be in the future)
 
     UpdateUserBody:
       type: object
