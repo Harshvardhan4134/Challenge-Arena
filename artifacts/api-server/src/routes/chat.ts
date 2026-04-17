@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { SendMessageBody } from "@workspace/api-zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
-import { collections, nowIso, type ChallengeDoc, type MessageDoc, type TeamDoc, type TeamMemberDoc, type UserDoc } from "../lib/firestore-db";
+import { collections, nowIso, type ChallengeDoc, type MessageDoc, type TeamMemberDoc, type UserDoc } from "../lib/firestore-db";
 import crypto from "crypto";
 
 const router = Router({ mergeParams: true });
@@ -43,16 +43,12 @@ router.post("/:challengeId/messages", requireAuth, async (req: AuthRequest, res)
   if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
   const challenge = challengeDoc.data() as ChallengeDoc;
 
-  const teamADoc = await collections.teams.doc(challenge.teamAId).get();
-  const teamA = teamADoc.exists ? (teamADoc.data() as TeamDoc) : null;
-  const teamBLeaderId = challenge.teamBId
-    ? (() => collections.teams.doc(challenge.teamBId!).get())
-    : null;
-  const teamBSnap = teamBLeaderId ? await teamBLeaderId : null;
-  const teamB = teamBSnap?.exists ? (teamBSnap.data() as TeamDoc) : null;
-
-  const isLeader = teamA?.leaderId === userId || teamB?.leaderId === userId;
-  if (!isLeader) return res.status(403).json({ error: "forbidden", message: "Only team leaders can send messages" });
+  const teamIds = [challenge.teamAId, challenge.teamBId].filter(Boolean) as string[];
+  const memberSnap = await collections.teamMembers.where("userId", "==", userId).get();
+  const member = memberSnap.docs.map((d) => d.data() as TeamMemberDoc).find((m) => teamIds.includes(m.teamId));
+  if (!member) {
+    return res.status(403).json({ error: "forbidden", message: "Only challenge participants can send messages" });
+  }
 
   const userDoc = await collections.users.doc(userId).get();
   const user = userDoc.exists ? (userDoc.data() as UserDoc) : null;

@@ -97,7 +97,6 @@ export default function ChallengeDetail() {
   const teamBLeaderId = c.teamB?.leaderId;
   const isTeamALeader = userId === teamALeaderId;
   const isTeamBLeader = userId === teamBLeaderId;
-  const isLeader = isTeamALeader || isTeamBLeader;
   const inTeamA = c.teamA?.players.some(p => p.userId === userId);
   const inTeamB = c.teamB?.players.some(p => p.userId === userId);
   const inPendingTeamB = pendingTeamB?.players?.some((p) => p.userId === userId) ?? false;
@@ -432,15 +431,15 @@ export default function ChallengeDetail() {
           <div className="card-brutal overflow-hidden">
             <div className="bg-black px-4 py-3 flex items-center gap-2">
               <MessageSquare className="w-4 h-4 text-[#FFE600]" />
-              <span className="text-[#FFE600] text-xs font-black font-mono tracking-widest">LEADER CHAT</span>
-              <span className="ml-auto tag-orange">LEADERS ONLY</span>
+              <span className="text-[#FFE600] text-xs font-black font-mono tracking-widest">TEAM CHAT</span>
+              <span className="ml-auto tag-orange">ALL PLAYERS</span>
             </div>
             <div className="bg-white p-4 space-y-3 max-h-52 overflow-y-auto">
               {messages.isLoading ? (
                 <div className="text-center text-xs font-mono text-gray-500">Loading messages...</div>
               ) : messages.data?.length === 0 ? (
                 <div className="text-center text-xs font-mono text-gray-500 py-4 border-2 border-dashed border-gray-200">
-                  No messages yet. Leaders can chat here.
+                  No messages yet. Say hi to your opponents.
                 </div>
               ) : (
                 messages.data?.map(m => (
@@ -456,7 +455,7 @@ export default function ChallengeDetail() {
                 ))
               )}
             </div>
-            {isLeader ? (
+            {inChallenge ? (
               <div className="flex gap-0 border-t-2 border-black">
                 <input
                   type="text"
@@ -474,16 +473,12 @@ export default function ChallengeDetail() {
                   <Send className="w-4 h-4" />
                 </button>
               </div>
-            ) : (
-              <div className="px-4 py-2.5 bg-[#FFE600] border-t-2 border-black text-xs font-black font-mono text-center text-black">
-                ONLY TEAM LEADERS CAN CHAT HERE
-              </div>
-            )}
+            ) : null}
           </div>
         ) : inChallenge && !bothTeamsJoined ? (
           <div className="card-brutal-sm bg-white p-4 text-center">
             <MessageSquare className="w-6 h-6 mx-auto mb-2 text-gray-400" />
-            <div className="text-xs font-black text-black">LEADER CHAT UNLOCKS WHEN BOTH TEAMS JOIN</div>
+            <div className="text-xs font-black text-black">TEAM CHAT UNLOCKS WHEN BOTH TEAMS JOIN</div>
             <div className="flex gap-1 justify-center mt-2">
               <div className="flex items-center gap-1 text-[9px] font-mono text-gray-600">
                 <Users className="w-3 h-3" />
