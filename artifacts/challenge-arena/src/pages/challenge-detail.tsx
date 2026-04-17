@@ -154,7 +154,7 @@ export default function ChallengeDetail() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex-1">
-            <div className="tag-orange inline-block mb-1">{c.mode} CHALLENGE</div>
+            <div className="tag-orange inline-block mb-1">{c.mode} MATCH</div>
             <h1 className="display-font text-4xl leading-none text-black">{c.title}</h1>
           </div>
           <span className={`text-[10px] font-black font-mono px-2 py-1 mt-1 shrink-0 ${statusInfo.bg}`}>
@@ -208,12 +208,17 @@ export default function ChallengeDetail() {
                 ))}
               </div>
               {canJoinA && (
-                <button
-                  onClick={() => { setError(""); joinChallenge.mutate({ challengeId, data: { side: "teamA" } }); }}
-                  className="btn-brutal mt-3 w-full py-1.5 text-xs bg-black text-[#FFE600]"
-                >
-                  JOIN TEAM A
-                </button>
+                <div className="mt-3 space-y-1">
+                  <button
+                    onClick={() => { setError(""); joinChallenge.mutate({ challengeId, data: { side: "teamA" } }); }}
+                    className="btn-brutal w-full py-1.5 text-xs bg-black text-[#FFE600]"
+                  >
+                    JOIN HOST TEAM (OPEN SLOT)
+                  </button>
+                  <p className="text-[9px] font-mono text-gray-500 leading-snug">
+                    Joining fills a free spot on the host roster (Team A).
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -242,12 +247,17 @@ export default function ChallengeDetail() {
                 <div className="text-xs font-mono text-gray-500 text-center py-2 border-2 border-dashed border-gray-200">AWAITING CHALLENGER</div>
               )}
               {canJoinB && !showJoinBForm && (
-                <button
-                  onClick={() => { setError(""); setShowJoinBForm(true); }}
-                  className="btn-brutal mt-3 w-full py-1.5 text-xs bg-[#FF6B00] text-white"
-                >
-                  CHALLENGE THEM
-                </button>
+                <div className="mt-3 space-y-1">
+                  <button
+                    onClick={() => { setError(""); setShowJoinBForm(true); }}
+                    className="btn-brutal w-full py-1.5 text-xs bg-[#FF6B00] text-white"
+                  >
+                    COMPETE VS HOST (REQUEST)
+                  </button>
+                  <p className="text-[9px] font-mono text-gray-500 leading-snug">
+                    You are the challenger side — the <strong>host leader must approve</strong> before the match locks.
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -257,8 +267,11 @@ export default function ChallengeDetail() {
         {showJoinBForm && (
           <div className="card-brutal bg-white p-4">
             <div className="text-[10px] font-black font-mono text-black uppercase tracking-widest mb-3 border-b-2 border-black pb-2">
-              ENTER YOUR TEAM NAME
+              YOUR CHALLENGER TEAM NAME
             </div>
+            <p className="text-[9px] font-mono text-gray-600 mb-2">
+              After you send this, the host (Team A leader) approves your team before you are fully in.
+            </p>
             <input
               type="text"
               value={joinTeamName}
@@ -292,20 +305,20 @@ export default function ChallengeDetail() {
         {pendingTeamB && !c.teamB && (
           <div className="card-brutal bg-white p-4">
             <div className="text-[10px] font-black font-mono text-black uppercase tracking-widest mb-2">
-              CHALLENGE REQUEST PENDING
+              CHALLENGER REQUEST — HOST APPROVAL
             </div>
             <div className="text-xs font-bold text-gray-700 mb-3">
-              Team A challenger must accept before this match opens.
+              The <strong>Team A leader (host)</strong> must approve the challenger roster before this match is locked in.
             </div>
             {canAcceptPendingChallenger ? (
               <button
                 onClick={acceptPendingChallenger}
                 className="btn-brutal w-full py-2.5 text-xs bg-[#00854B] text-white"
               >
-                ACCEPT CHALLENGE REQUEST
+                APPROVE CHALLENGER TEAM
               </button>
             ) : isPendingChallengerLeader || inPendingTeamB ? (
-              <div className="text-xs font-black text-[#FF6B00]">Waiting for Team A challenger approval.</div>
+              <div className="text-xs font-black text-[#FF6B00]">Waiting for host (Team A leader) to approve your team.</div>
             ) : null}
           </div>
         )}

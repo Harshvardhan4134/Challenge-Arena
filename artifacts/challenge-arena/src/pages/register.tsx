@@ -95,7 +95,11 @@ export default function Register() {
       const ign = await fetchIgnForUid(uid, lookupRegion);
       setForm((prev) => ({ ...prev, ign }));
     } catch (error) {
-      setLookupError(error instanceof Error ? error.message : "Profile lookup failed. Enter IGN manually.");
+      setLookupError(
+        error instanceof Error
+          ? `${error.message} If UID lookup keeps failing, type your exact in-game name (IGN) below — it will be used as your username.`
+          : "Could not verify UID right now. Enter your exact in-game name (IGN) below — it will be used as your username.",
+      );
     } finally {
       setIsFetchingIgn(false);
     }
@@ -113,7 +117,11 @@ export default function Register() {
       const ign = await fetchIgnForUid(uid, googleLookupRegion);
       setGoogleProfileForm((prev) => ({ ...prev, ign, username: ign }));
     } catch (error) {
-      setGoogleLookupError(error instanceof Error ? error.message : "Profile lookup failed. Enter IGN manually.");
+      setGoogleLookupError(
+        error instanceof Error
+          ? `${error.message} If UID lookup keeps failing, type your IGN below.`
+          : "Could not verify UID. Type your exact in-game name (IGN) below.",
+      );
     } finally {
       setIsFetchingGoogleIgn(false);
     }
@@ -328,13 +336,16 @@ export default function Register() {
                     {lookupError && (
                       <p className="text-[10px] font-bold text-[#FF1E56] mt-1">{lookupError}</p>
                     )}
+                    <p className="text-[10px] font-mono text-gray-600 mt-1.5 leading-relaxed border-l-2 border-[#FF6B00] pl-2">
+                      Having UID or fetch issues? No problem — enter your exact <strong>in-game name (IGN)</strong> in the field below. That name is your account username.
+                    </p>
                   </div>
 
                   {/* IGN */}
                   <div>
                     <label className="flex items-center gap-1.5 text-black text-xs font-black mb-1">
                       <Gamepad2 className="w-3.5 h-3.5 text-[#FF6B00]" />
-                      IN-GAME NAME (IGN)
+                      IN-GAME NAME (IGN) *
                     </label>
                     <input
                       type="text"
@@ -451,6 +462,9 @@ export default function Register() {
               {googleLookupError && (
                 <p className="text-[10px] font-bold text-[#FF1E56] mt-1">{googleLookupError}</p>
               )}
+              <p className="text-[10px] font-mono text-gray-600 mt-1.5 leading-relaxed border-l-2 border-[#FF6B00] pl-2">
+                UID lookup broken? Enter your exact <strong>IGN</strong> next — we use it as your username.
+              </p>
             </div>
             <div>
               <label className="section-label block mb-1">IGN *</label>

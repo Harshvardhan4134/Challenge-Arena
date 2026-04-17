@@ -132,7 +132,7 @@ export default function Landing() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { n: "01", icon: Users, title: "CREATE YOUR PROFILE", desc: "Sign up, enter your Free Fire UID and in-game name. Your competitive identity starts here." },
-              { n: "02", icon: Swords, title: "CREATE OR JOIN", desc: "Set match rules — mode, time, restrictions. Or browse open challenges and jump straight in." },
+              { n: "02", icon: Swords, title: "HOST OR JOIN", desc: "Host a match to compete as Team A — challengers request to face you and you approve. Or join an open roster spot; competing as the challenger side always needs the host leader’s OK." },
               { n: "03", icon: Trophy, title: "COMPETE & RANK", desc: "Play the match, submit the result. Build your win streak. Climb the weekly leaderboard." },
             ].map(({ n, icon: Icon, title, desc }) => (
               <div key={n} className="card-brutal p-5">

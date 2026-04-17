@@ -80,13 +80,18 @@ export default function Profile() {
       );
       const body = await res.json();
       if (!res.ok || !body?.ign) {
-        setLookupError(body?.message || "Could not fetch IGN for this UID.");
+        setLookupError(
+          (body?.message || "Could not fetch IGN for this UID.") +
+            " Type your exact in-game name (IGN) in the field below.",
+        );
         return;
       }
       setForm((prev) => ({ ...prev, ign: String(body.ign) }));
       setLookupSuccess(`Fetched IGN: ${body.ign}`);
     } catch {
-      setLookupError("Profile lookup failed. Please try again.");
+      setLookupError(
+        "UID lookup failed. Enter your exact in-game name (IGN) in the field below — it updates your display name.",
+      );
     } finally {
       setIsFetchingIgn(false);
     }
@@ -192,6 +197,9 @@ export default function Profile() {
                 </div>
                 {lookupError && <p className="text-[10px] font-bold text-[#FF1E56]">{lookupError}</p>}
                 {lookupSuccess && <p className="text-[10px] font-bold text-[#00854B]">{lookupSuccess}</p>}
+                <p className="text-[10px] font-mono text-gray-600 leading-relaxed border-l-2 border-[#FF6B00] pl-2">
+                  If UID fetch fails, enter your <strong>IGN</strong> here — no lookup required.
+                </p>
                 <input type="text" value={form.ign} onChange={e => setForm(f => ({ ...f, ign: e.target.value }))} placeholder="In-Game Name (IGN)" className={inputCls} />
                 <select value={form.gender} onChange={e => setForm(f => ({ ...f, gender: e.target.value }))} className={inputCls}>
                   <option value="">Prefer not to say</option>

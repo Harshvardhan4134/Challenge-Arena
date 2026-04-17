@@ -71,8 +71,8 @@ export default function Home() {
             style={{ backgroundColor: "#FF6B00", color: "#FFFFFF" }}
           >
             <Plus className="w-7 h-7 mb-2" />
-            <div className="font-black text-sm">CREATE CHALLENGE</div>
-            <div className="text-xs font-mono mt-0.5" style={{ color: "rgba(255,255,255,0.85)" }}>SET RULES & INVITE</div>
+            <div className="font-black text-sm">HOST A MATCH</div>
+            <div className="text-xs font-mono mt-0.5" style={{ color: "rgba(255,255,255,0.85)" }}>YOU COMPETE — OTHERS CAN CHALLENGE YOU</div>
           </button>
           <button
             onClick={() => navigate("/challenges")}
@@ -80,8 +80,8 @@ export default function Home() {
             style={{ backgroundColor: "#000000", color: "#FFE600" }}
           >
             <Swords className="w-7 h-7 mb-2" />
-            <div className="font-black text-sm">JOIN MATCH</div>
-            <div className="text-xs font-mono mt-0.5" style={{ color: "rgba(255,230,0,0.85)" }}>BROWSE OPEN MATCHES</div>
+            <div className="font-black text-sm">FIND A MATCH</div>
+            <div className="text-xs font-mono mt-0.5" style={{ color: "rgba(255,230,0,0.85)" }}>JOIN A ROSTER OR REQUEST TO COMPETE</div>
           </button>
         </div>
 

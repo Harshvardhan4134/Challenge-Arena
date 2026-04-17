@@ -55,8 +55,11 @@ export default function CreateChallenge() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <div className="tag-orange inline-block mb-1">NEW CHALLENGE</div>
+            <div className="tag-orange inline-block mb-1">HOST A MATCH</div>
             <div className="display-font text-4xl leading-none">CREATE CHALLENGE</div>
+            <p className="text-xs font-mono text-gray-600 mt-2 max-w-xl">
+              You lead Team A (host). Other players join your roster or request to compete as challengers — you approve challenger teams before the match locks.
+            </p>
           </div>
         </div>
 

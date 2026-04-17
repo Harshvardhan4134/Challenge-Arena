@@ -226,6 +226,9 @@ export default function Login() {
                 onChange={setGoogleField("freefireUid")}
                 className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
               />
+              <p className="text-[10px] font-mono text-gray-600 mt-1.5 border-l-2 border-[#FF6B00] pl-2">
+                If UID lookup or verification fails elsewhere, always enter your exact <strong>IGN</strong> below — we use it as your in-game display name.
+              </p>
             </div>
             <div>
               <label className="section-label block mb-1">IGN</label>

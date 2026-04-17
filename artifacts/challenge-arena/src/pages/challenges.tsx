@@ -33,15 +33,15 @@ export default function Challenges() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <div className="tag-black inline-block mb-1">BROWSE ACTIVE MATCHES</div>
-            <div className="display-font text-4xl">CHALLENGES</div>
+            <div className="tag-black inline-block mb-1">COMPETE OR JOIN A TEAM</div>
+            <div className="display-font text-4xl">MATCHES</div>
           </div>
           <button
             onClick={() => navigate("/challenges/create")}
             className="btn-brutal flex items-center gap-1.5 px-4 py-2 bg-[#FF6B00] text-white text-sm"
           >
             <Plus className="w-4 h-4" />
-            CREATE
+            HOST
           </button>
         </div>
 
