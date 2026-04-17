@@ -4,6 +4,7 @@ import { useGetMe, useGetStatsOverview, useListChallenges, useListNotifications,
 import Layout from "@/components/Layout";
 import { Swords, Plus, Bell, ChevronRight, Trophy } from "lucide-react";
 import { apiUrl } from "@/lib/api-url";
+import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
 export default function Home() {

@@ -29,8 +29,6 @@ export const RegisterBody = zod.object({
     .max(registerBodyUsernameMax),
   password: zod.string().min(registerBodyPasswordMin),
   email: zod.string().email().optional(),
-  /** Digits with optional +country code; used for WhatsApp match alerts */
-  whatsappPhone: zod.string().max(22).optional(),
   freefireUid: zod.string(),
   ign: zod.string().optional(),
   gender: zod.enum(["male", "female", "other"]).nullish(),
@@ -48,12 +46,16 @@ export const LoginResponse = zod.object({
   user: zod.object({
     id: zod.string(),
     username: zod.string(),
-    email: zod.string().nullish(),
-    whatsappPhone: zod.string().nullish(),
     freefireUid: zod.string().nullish(),
     ign: zod.string().nullish(),
     gender: zod.string().nullish(),
     createdAt: zod.coerce.date(),
+    email: zod.string().nullish(),
+    whatsappPhone: zod.string().nullish(),
+    isAdmin: zod
+      .boolean()
+      .optional()
+      .describe("True when user may access admin API (env or Firestore flag)"),
     stats: zod
       .object({
         userId: zod.string(),
@@ -82,12 +84,16 @@ export const LogoutResponse = zod.object({
 export const GetMeResponse = zod.object({
   id: zod.string(),
   username: zod.string(),
-  email: zod.string().nullish(),
-  whatsappPhone: zod.string().nullish(),
   freefireUid: zod.string().nullish(),
   ign: zod.string().nullish(),
   gender: zod.string().nullish(),
   createdAt: zod.coerce.date(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
+  isAdmin: zod
+    .boolean()
+    .optional()
+    .describe("True when user may access admin API (env or Firestore flag)"),
   stats: zod
     .object({
       userId: zod.string(),
@@ -110,12 +116,16 @@ export const GetUserParams = zod.object({
 export const GetUserResponse = zod.object({
   id: zod.string(),
   username: zod.string(),
-  email: zod.string().nullish(),
-  whatsappPhone: zod.string().nullish(),
   freefireUid: zod.string().nullish(),
   ign: zod.string().nullish(),
   gender: zod.string().nullish(),
   createdAt: zod.coerce.date(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
+  isAdmin: zod
+    .boolean()
+    .optional()
+    .describe("True when user may access admin API (env or Firestore flag)"),
   stats: zod
     .object({
       userId: zod.string(),
@@ -139,19 +149,21 @@ export const UpdateUserBody = zod.object({
   freefireUid: zod.string().optional(),
   ign: zod.string().optional(),
   gender: zod.enum(["male", "female", "other"]).nullish(),
-  whatsappPhone: zod.string().max(22).optional().nullable(),
-  email: zod.string().email().optional().nullable(),
 });
 
 export const UpdateUserResponse = zod.object({
   id: zod.string(),
   username: zod.string(),
-  email: zod.string().nullish(),
-  whatsappPhone: zod.string().nullish(),
   freefireUid: zod.string().nullish(),
   ign: zod.string().nullish(),
   gender: zod.string().nullish(),
   createdAt: zod.coerce.date(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
+  isAdmin: zod
+    .boolean()
+    .optional()
+    .describe("True when user may access admin API (env or Firestore flag)"),
   stats: zod
     .object({
       userId: zod.string(),
@@ -222,25 +234,6 @@ export const ListChallengesResponseItem = zod.object({
       maxSize: zod.number(),
     })
     .nullish(),
-  pendingTeamB: zod
-    .object({
-      id: zod.string(),
-      name: zod.string(),
-      leaderId: zod.string(),
-      players: zod.array(
-        zod.object({
-          userId: zod.string(),
-          username: zod.string(),
-          ign: zod.string().nullish(),
-          isLeader: zod.boolean(),
-          joinedAt: zod.coerce.date(),
-        }),
-      ),
-      maxSize: zod.number(),
-    })
-    .nullish(),
-  pendingRequestedBy: zod.string().nullish(),
-  pendingRequestedAt: zod.coerce.date().nullish(),
   roomId: zod.string().nullish(),
   roomPassword: zod.string().nullish(),
   createdAt: zod.coerce.date(),
@@ -315,25 +308,6 @@ export const GetChallengeResponse = zod.object({
       maxSize: zod.number(),
     })
     .nullish(),
-  pendingTeamB: zod
-    .object({
-      id: zod.string(),
-      name: zod.string(),
-      leaderId: zod.string(),
-      players: zod.array(
-        zod.object({
-          userId: zod.string(),
-          username: zod.string(),
-          ign: zod.string().nullish(),
-          isLeader: zod.boolean(),
-          joinedAt: zod.coerce.date(),
-        }),
-      ),
-      maxSize: zod.number(),
-    })
-    .nullish(),
-  pendingRequestedBy: zod.string().nullish(),
-  pendingRequestedAt: zod.coerce.date().nullish(),
   roomId: zod.string().nullish(),
   roomPassword: zod.string().nullish(),
   createdAt: zod.coerce.date(),
@@ -362,7 +336,10 @@ export const JoinChallengeParams = zod.object({
 
 export const JoinChallengeBody = zod.object({
   side: zod.enum(["teamA", "teamB"]),
-  teamName: zod.string().optional(),
+  teamName: zod
+    .string()
+    .optional()
+    .describe("Team name (required when joining as team B leader)"),
 });
 
 export const JoinChallengeResponse = zod.object({
@@ -412,25 +389,6 @@ export const JoinChallengeResponse = zod.object({
       maxSize: zod.number(),
     })
     .nullish(),
-  pendingTeamB: zod
-    .object({
-      id: zod.string(),
-      name: zod.string(),
-      leaderId: zod.string(),
-      players: zod.array(
-        zod.object({
-          userId: zod.string(),
-          username: zod.string(),
-          ign: zod.string().nullish(),
-          isLeader: zod.boolean(),
-          joinedAt: zod.coerce.date(),
-        }),
-      ),
-      maxSize: zod.number(),
-    })
-    .nullish(),
-  pendingRequestedBy: zod.string().nullish(),
-  pendingRequestedAt: zod.coerce.date().nullish(),
   roomId: zod.string().nullish(),
   roomPassword: zod.string().nullish(),
   createdAt: zod.coerce.date(),
@@ -467,6 +425,7 @@ export const SubmitResultResponse = zod.object({
   challengeId: zod.string(),
   submittedBy: zod.string(),
   winningSide: zod.string(),
+  screenshotUrl: zod.string().nullish(),
   status: zod.enum(["pending", "confirmed", "disputed"]),
   createdAt: zod.coerce.date(),
 });
@@ -578,6 +537,172 @@ export const GetWeeklyLeaderboardResponseItem = zod.object({
 });
 export const GetWeeklyLeaderboardResponse = zod.array(
   GetWeeklyLeaderboardResponseItem,
+);
+
+/**
+ * @summary Admin dashboard counts and recent signups
+ */
+export const GetAdminOverviewResponse = zod.object({
+  usersTotal: zod.number(),
+  challengesTotal: zod.number(),
+  challengesByStatus: zod.record(zod.string(), zod.number()),
+  teamsTotal: zod.number(),
+  teamMembersTotal: zod.number(),
+  messagesTotal: zod.number(),
+  notificationsTotal: zod.number(),
+  unreadNotifications: zod.number(),
+  matchResultsTotal: zod.number(),
+  pushSubscriptionsTotal: zod.number(),
+  recentUsers: zod.array(
+    zod.object({
+      id: zod.string(),
+      username: zod.string(),
+      ign: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
+ * @summary List all users with profile fields and stats (no passwords)
+ */
+export const GetAdminUsersResponseItem = zod.object({
+  id: zod.string(),
+  username: zod.string(),
+  freefireUid: zod.string().nullish(),
+  ign: zod.string().nullish(),
+  gender: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  email: zod.string().nullish(),
+  whatsappPhone: zod.string().nullish(),
+  isAdmin: zod
+    .boolean()
+    .optional()
+    .describe("True when user may access admin API (env or Firestore flag)"),
+  stats: zod
+    .object({
+      userId: zod.string(),
+      matchesPlayed: zod.number(),
+      wins: zod.number(),
+      losses: zod.number(),
+      winStreak: zod.number(),
+      weeklyWins: zod.number(),
+    })
+    .nullish(),
+});
+export const GetAdminUsersResponse = zod.array(GetAdminUsersResponseItem);
+
+/**
+ * @summary List challenges with full team/roster detail (latest first)
+ */
+export const GetAdminChallengesResponseItem = zod.object({
+  id: zod.string(),
+  title: zod.string(),
+  mode: zod.enum(["1v1", "2v2", "4v4"]),
+  scheduledAt: zod.coerce.date(),
+  rules: zod.array(zod.string()),
+  customRule: zod.string().nullish(),
+  status: zod.enum([
+    "open",
+    "full",
+    "in_progress",
+    "completed",
+    "cancelled",
+    "disputed",
+  ]),
+  teamA: zod.object({
+    id: zod.string(),
+    name: zod.string(),
+    leaderId: zod.string(),
+    players: zod.array(
+      zod.object({
+        userId: zod.string(),
+        username: zod.string(),
+        ign: zod.string().nullish(),
+        isLeader: zod.boolean(),
+        joinedAt: zod.coerce.date(),
+      }),
+    ),
+    maxSize: zod.number(),
+  }),
+  teamB: zod
+    .object({
+      id: zod.string(),
+      name: zod.string(),
+      leaderId: zod.string(),
+      players: zod.array(
+        zod.object({
+          userId: zod.string(),
+          username: zod.string(),
+          ign: zod.string().nullish(),
+          isLeader: zod.boolean(),
+          joinedAt: zod.coerce.date(),
+        }),
+      ),
+      maxSize: zod.number(),
+    })
+    .nullish(),
+  roomId: zod.string().nullish(),
+  roomPassword: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  creatorId: zod.string(),
+  winnerId: zod.string().nullish(),
+});
+export const GetAdminChallengesResponse = zod.array(
+  GetAdminChallengesResponseItem,
+);
+
+/**
+ * @summary Recent in-app notifications (all users)
+ */
+export const GetAdminNotificationsResponseItem = zod.object({
+  id: zod.string(),
+  userId: zod.string(),
+  type: zod.enum([
+    "player_joined",
+    "team_almost_full",
+    "match_ready",
+    "match_starting",
+    "match_result",
+  ]),
+  title: zod.string(),
+  message: zod.string(),
+  isRead: zod.boolean(),
+  challengeId: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetAdminNotificationsResponse = zod.array(
+  GetAdminNotificationsResponseItem,
+);
+
+/**
+ * @summary Recent match result submissions
+ */
+export const GetAdminMatchResultsResponseItem = zod.object({
+  id: zod.string(),
+  challengeId: zod.string(),
+  submittedBy: zod.string(),
+  winningSide: zod.string(),
+  screenshotUrl: zod.string().nullish(),
+  status: zod.enum(["pending", "confirmed", "disputed"]),
+  createdAt: zod.coerce.date(),
+});
+export const GetAdminMatchResultsResponse = zod.array(
+  GetAdminMatchResultsResponseItem,
+);
+
+/**
+ * @summary Web push subscription records
+ */
+export const GetAdminPushSubscriptionsResponseItem = zod.object({
+  id: zod.string(),
+  userId: zod.string(),
+  endpoint: zod.string(),
+  keys: zod.record(zod.string(), zod.unknown()).optional(),
+  createdAt: zod.coerce.date(),
+});
+export const GetAdminPushSubscriptionsResponse = zod.array(
+  GetAdminPushSubscriptionsResponseItem,
 );
 
 /**

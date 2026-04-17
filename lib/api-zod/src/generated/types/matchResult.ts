@@ -12,6 +12,7 @@ export interface MatchResult {
   challengeId: string;
   submittedBy: string;
   winningSide: string;
+  screenshotUrl?: string | null;
   status: MatchResultStatus;
   createdAt: Date;
 }

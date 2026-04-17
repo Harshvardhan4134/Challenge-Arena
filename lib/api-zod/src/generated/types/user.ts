@@ -14,5 +14,9 @@ export interface User {
   ign?: string | null;
   gender?: string | null;
   createdAt: Date;
+  email?: string | null;
+  whatsappPhone?: string | null;
+  /** True when user may access admin API (env or Firestore flag) */
+  isAdmin?: boolean;
   stats?: PlayerStats | null;
 }

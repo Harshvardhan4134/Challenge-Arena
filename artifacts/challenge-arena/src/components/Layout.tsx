@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation, useRoute } from "wouter";
+import { useLocation } from "wouter";
 import { Home, Swords, Trophy, Bell, User, Shield } from "lucide-react";
 import { useGetMe, useListNotifications, getGetMeQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
@@ -14,8 +14,17 @@ const navItems = [
   { path: "/admin", icon: Shield, label: "ADMIN", adminOnly: true },
 ] as const;
 
+/** Must not use hooks inside nav map — item count changes when admin tab appears. */
+function isNavItemActive(navPath: string, location: string): boolean {
+  const path = (location.replace(/\/$/, "") || "/").split("?")[0] ?? "/";
+  const target = navPath.replace(/\/$/, "") || "/";
+  if (target === "/home") return path === "/home";
+  if (target === "/profile/me") return path.startsWith("/profile");
+  return path === target || path.startsWith(`${target}/`);
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const me = useGetMe({ query: { queryKey: getGetMeQueryKey() } });
   const notifications = useListNotifications({
     query: { queryKey: ["listNotifications"], refetchInterval: 30_000 },
@@ -52,13 +61,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             "max-w-2xl mx-auto flex w-full",
           )}
         >
-          {bottomNav.map(({ path, icon: Icon, label }) => {
-            const [isActive] = useRoute(path === "/home" ? "/home" : path + "*");
+          {bottomNav.map(({ path: navPath, icon: Icon, label }) => {
+            const isActive = isNavItemActive(navPath, location);
             return (
               <button
                 type="button"
-                key={path}
-                onClick={() => navigate(path)}
+                key={navPath}
+                onClick={() => navigate(navPath)}
                 className={cn(
                   "flex flex-1 min-w-0 min-h-[3.25rem] sm:min-h-14 flex-col items-center justify-center gap-0.5 px-0.5 py-2 transition-colors relative border-r-2 border-black last:border-r-0 touch-manipulation active:opacity-90",
                   isActive ? "bg-black text-[#FFE600]" : "text-black hover:bg-black/10",

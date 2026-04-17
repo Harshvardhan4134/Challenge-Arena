@@ -15,7 +15,6 @@ export interface RegisterBody {
   username: string;
   /** @minLength 6 */
   password: string;
-  /** @format email */
   email?: string;
   freefireUid: string;
   ign?: string;

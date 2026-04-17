@@ -9,4 +9,6 @@ import type { JoinChallengeBodySide } from "./joinChallengeBodySide";
 
 export interface JoinChallengeBody {
   side: JoinChallengeBodySide;
+  /** Team name (required when joining as team B leader) */
+  teamName?: string;
 }
