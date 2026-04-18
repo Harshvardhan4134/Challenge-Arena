@@ -1,6 +1,13 @@
 import { useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { useGetMe, useGetStatsOverview, useListChallenges, useListNotifications, useGetUserMatchHistory } from "@workspace/api-client-react";
+import {
+  useGetMe,
+  useGetStatsOverview,
+  useListChallenges,
+  useListNotifications,
+  useGetUserMatchHistory,
+  getListNotificationsQueryKey,
+} from "@workspace/api-client-react";
 import Layout from "@/components/Layout";
 import { Swords, Plus, Bell, ChevronRight, Trophy } from "lucide-react";
 import { apiUrl } from "@/lib/api-url";
@@ -12,7 +19,7 @@ export default function Home() {
   const me = useGetMe({ query: { queryKey: ["getMe"] } });
   const stats = useGetStatsOverview({ query: { queryKey: ["getStatsOverview"] } });
   const challenges = useListChallenges({ query: { queryKey: ["listChallenges"] } });
-  const notifications = useListNotifications({ query: { queryKey: ["listNotifications"] } });
+  const notifications = useListNotifications({ query: { queryKey: getListNotificationsQueryKey() } });
   const recentHistory = useGetUserMatchHistory(me.data?.id ?? "", {
     query: { queryKey: ["getUserMatchHistory", me.data?.id], enabled: !!me.data?.id },
   });

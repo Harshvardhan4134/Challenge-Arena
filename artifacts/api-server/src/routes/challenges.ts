@@ -21,7 +21,11 @@ import {
   type PlayerReportDoc,
   type MatchResultProofDoc,
 } from "../lib/firestore-db";
-import { broadcastNewChallengeLobbyWhatsApp, notifyUser } from "../lib/notify-user";
+import {
+  broadcastNewChallengeLobbyInApp,
+  broadcastNewChallengeLobbyWhatsApp,
+  notifyUser,
+} from "../lib/notify-user";
 import { uploadMatchResultProofImage } from "../lib/match-result-proof-storage";
 import { publicApiBaseUrl } from "../lib/public-api-url";
 
@@ -313,6 +317,14 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   });
 
   void broadcastNewChallengeLobbyWhatsApp({
+    challengeId: challenge.id,
+    title: challenge.title,
+    mode: challenge.mode,
+    scheduledAt: challenge.scheduledAt,
+    creatorUserId: userId,
+  }).catch(() => {});
+
+  void broadcastNewChallengeLobbyInApp({
     challengeId: challenge.id,
     title: challenge.title,
     mode: challenge.mode,
@@ -824,6 +836,22 @@ router.post("/:challengeId/rematch", requireAuth, async (req: AuthRequest, res) 
     customLines,
     teamName,
   });
+
+  void broadcastNewChallengeLobbyWhatsApp({
+    challengeId: newChallenge.id,
+    title: newChallenge.title,
+    mode: newChallenge.mode,
+    scheduledAt: newChallenge.scheduledAt,
+    creatorUserId: userId,
+  }).catch(() => {});
+
+  void broadcastNewChallengeLobbyInApp({
+    challengeId: newChallenge.id,
+    title: newChallenge.title,
+    mode: newChallenge.mode,
+    scheduledAt: newChallenge.scheduledAt,
+    creatorUserId: userId,
+  }).catch(() => {});
 
   return res.status(201).json(await buildChallengeResponse(newChallenge));
 });

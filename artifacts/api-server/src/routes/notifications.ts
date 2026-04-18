@@ -6,6 +6,13 @@ import { getVapidPublicKey } from "../lib/notify-user";
 
 const router = Router();
 
+function notificationIdFromReq(req: { params: Record<string, string | string[] | undefined> }): string | undefined {
+  const raw = req.params["notificationId"];
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw) && typeof raw[0] === "string") return raw[0];
+  return undefined;
+}
+
 router.get("/push/vapid-public-key", (_req, res) => {
   const publicKey = getVapidPublicKey();
   // 200 + missing key avoids browser console noise when push is optional (no VAPID_* on server).
@@ -41,7 +48,8 @@ router.get("/", requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.post("/:notificationId/read", requireAuth, async (req: AuthRequest, res) => {
-  const { notificationId } = req.params;
+  const notificationId = notificationIdFromReq(req);
+  if (!notificationId) return res.status(400).json({ error: "bad_request", message: "Missing notification id" });
   await collections.notifications.doc(notificationId).set({ isRead: true }, { merge: true });
   return res.status(200).json({ success: true, message: "Marked as read" });
 });

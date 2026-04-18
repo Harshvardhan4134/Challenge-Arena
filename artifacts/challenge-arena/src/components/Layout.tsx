@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { Home, Swords, Trophy, Bell, User, Shield } from "lucide-react";
-import { useGetMe, useListNotifications, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useGetMe, useListNotifications, getGetMeQueryKey, getListNotificationsQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { registerWebPushForUser } from "@/lib/push-notifications";
 
@@ -27,7 +27,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [location, navigate] = useLocation();
   const me = useGetMe({ query: { queryKey: getGetMeQueryKey() } });
   const notifications = useListNotifications({
-    query: { queryKey: ["listNotifications"], refetchInterval: 30_000 },
+    query: { queryKey: getListNotificationsQueryKey(), refetchInterval: 30_000 },
   });
   const unread = notifications.data?.filter(n => !n.isRead).length ?? 0;
   const bottomNav = navItems.filter((item) => !("adminOnly" in item && item.adminOnly) || me.data?.isAdmin);

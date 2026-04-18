@@ -100,6 +100,75 @@ async function sendWebPushToUser(userId: string, title: string, body: string, ur
   );
 }
 
+/** In-app + web push only (no email/WhatsApp) — for broadcasts that would spam external channels. */
+export async function createInAppNotificationOnly(
+  userId: string,
+  payload: { type: string; title: string; message: string; challengeId: string | null },
+): Promise<void> {
+  const notif: NotificationDoc = {
+    id: crypto.randomUUID(),
+    userId,
+    type: payload.type,
+    title: payload.title,
+    message: payload.message,
+    challengeId: payload.challengeId,
+    isRead: false,
+    createdAt: nowIso(),
+  };
+  await collections.notifications.doc(notif.id).set(notif);
+  const link = deepLink(payload.challengeId);
+  await sendWebPushToUser(userId, payload.title, payload.message, link).catch((e) =>
+    logger.warn({ err: e, userId }, "in-app notify web push failed"),
+  );
+}
+
+/**
+ * In-app ALERTS for other players when a host opens a lobby (Firestore notification + optional web push).
+ * Skips the creator. Cap with IN_APP_LOBBY_BROADCAST_MAX (default 150). Disable with IN_APP_LOBBY_BROADCAST=false.
+ */
+export async function broadcastNewChallengeLobbyInApp(params: {
+  challengeId: string;
+  title: string;
+  mode: string;
+  scheduledAt: string;
+  creatorUserId: string;
+}): Promise<void> {
+  if (process.env["IN_APP_LOBBY_BROADCAST"] === "false") return;
+  const maxCap = 500;
+  const max = Math.min(
+    maxCap,
+    Math.max(1, parseInt(process.env["IN_APP_LOBBY_BROADCAST_MAX"] ?? "150", 10) || 150),
+  );
+
+  const snap = await collections.users.get();
+  const recipientIds: string[] = [];
+  for (const d of snap.docs) {
+    const u = d.data() as UserDoc;
+    if (u.id === params.creatorUserId) continue;
+    recipientIds.push(u.id);
+    if (recipientIds.length >= max) break;
+  }
+
+  const when = new Date(params.scheduledAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const title = "New match in lobby";
+  const message = `${params.title} (${params.mode}) · ${when}. Tap to view or join.`;
+
+  const chunk = 15;
+  for (let i = 0; i < recipientIds.length; i += chunk) {
+    const part = recipientIds.slice(i, i + chunk);
+    await Promise.allSettled(
+      part.map((uid) =>
+        createInAppNotificationOnly(uid, {
+          type: "new_lobby_match",
+          title,
+          message,
+          challengeId: params.challengeId,
+        }),
+      ),
+    );
+  }
+}
+
 /**
  * WhatsApp-only blast when a host opens a new lobby challenge (optional; Twilio required).
  * Skips the creator. Cap with WHATSAPP_LOBBY_BROADCAST_MAX (default 150). Disable with WHATSAPP_LOBBY_BROADCAST=false.

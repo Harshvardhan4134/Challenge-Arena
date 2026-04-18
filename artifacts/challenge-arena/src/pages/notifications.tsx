@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import { Bell, BellOff, CheckCheck } from "lucide-react";
 
 const TYPE_STYLE: Record<string, { label: string; cls: string }> = {
+  new_lobby_match: { label: "NEW LOBBY", cls: "tag-orange" },
   player_joined: { label: "PLAYER JOINED", cls: "tag-green" },
   team_almost_full: { label: "ALMOST FULL", cls: "tag-orange" },
   match_ready: { label: "MATCH READY", cls: "tag-black" },
@@ -14,6 +15,7 @@ const TYPE_STYLE: Record<string, { label: string; cls: string }> = {
   challenge_request: { label: "REQUEST", cls: "tag-orange" },
   challenge_accepted: { label: "ACCEPTED", cls: "tag-green" },
   match_reminder: { label: "REMINDER", cls: "tag-black" },
+  team_chat: { label: "CHAT", cls: "tag-black" },
 };
 
 export default function Notifications() {
