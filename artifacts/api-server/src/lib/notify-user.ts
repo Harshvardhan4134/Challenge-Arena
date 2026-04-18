@@ -100,7 +100,55 @@ async function sendWebPushToUser(userId: string, title: string, body: string, ur
   );
 }
 
-/** Leaders of Team A and Team B (if accepted), for match reminders */
+/**
+ * WhatsApp-only blast when a host opens a new lobby challenge (optional; Twilio required).
+ * Skips the creator. Cap with WHATSAPP_LOBBY_BROADCAST_MAX (default 150). Disable with WHATSAPP_LOBBY_BROADCAST=false.
+ */
+export async function broadcastNewChallengeLobbyWhatsApp(params: {
+  challengeId: string;
+  title: string;
+  mode: string;
+  scheduledAt: string;
+  creatorUserId: string;
+}): Promise<void> {
+  if (process.env["WHATSAPP_LOBBY_BROADCAST"] === "false") return;
+  const sid = process.env["TWILIO_ACCOUNT_SID"]?.trim();
+  const token = process.env["TWILIO_AUTH_TOKEN"]?.trim();
+  const from = process.env["TWILIO_WHATSAPP_FROM"]?.trim();
+  if (!sid || !token || !from) return;
+
+  const maxCap = 500;
+  const max = Math.min(
+    maxCap,
+    Math.max(1, parseInt(process.env["WHATSAPP_LOBBY_BROADCAST_MAX"] ?? "150", 10) || 150),
+  );
+
+  const snap = await collections.users.get();
+  const phones: string[] = [];
+  for (const d of snap.docs) {
+    const u = d.data() as UserDoc;
+    if (u.id === params.creatorUserId) continue;
+    const raw = (u.whatsappPhone ?? "").trim();
+    if (!raw) continue;
+    phones.push(raw);
+    if (phones.length >= max * 2) break;
+  }
+
+  const uniquePhones = [...new Set(phones)].slice(0, max);
+  const when = new Date(params.scheduledAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" });
+  const link = deepLink(params.challengeId);
+  const bodyText =
+    `${params.title} (${params.mode})\nWhen: ${when}\nOpen the app to view or join this lobby.`;
+  const waBody = formatWhatsAppBotMessage("New match in lobby", bodyText, link);
+
+  const chunk = 10;
+  for (let i = 0; i < uniquePhones.length; i += chunk) {
+    const part = uniquePhones.slice(i, i + chunk);
+    await Promise.allSettled(part.map((phone) => sendTwilioWhatsApp(phone, waBody)));
+  }
+}
+
+/** Leaders of Team A and Team B (if accepted), for match reminders. */
 export async function getChallengeLeaderUserIds(challenge: ChallengeDoc): Promise<string[]> {
   const ids: string[] = [];
   const teamADoc = await collections.teams.doc(challenge.teamAId).get();

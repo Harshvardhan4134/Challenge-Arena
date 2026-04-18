@@ -187,8 +187,13 @@ export default function Home() {
         {/* Recent match history */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <div className="font-black text-sm">RECENT MATCHES</div>
-            <button onClick={() => navigate("/profile/me")} className="text-xs font-black flex items-center gap-0.5 underline hover:text-[#FF6B00]">
+            <div>
+              <div className="font-black text-sm">RECENT MATCHES</div>
+              <div className="text-[10px] font-mono font-bold text-gray-600 mt-0.5 max-w-[220px] sm:max-w-none">
+                Your finished matches only (completed or disputed) — not everyone’s games.
+              </div>
+            </div>
+            <button onClick={() => navigate("/profile/me")} className="text-xs font-black flex items-center gap-0.5 underline hover:text-[#FF6B00] shrink-0 self-start">
               VIEW HISTORY <ChevronRight className="w-3 h-3" />
             </button>
           </div>

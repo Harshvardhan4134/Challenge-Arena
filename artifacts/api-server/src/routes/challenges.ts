@@ -21,7 +21,7 @@ import {
   type PlayerReportDoc,
   type MatchResultProofDoc,
 } from "../lib/firestore-db";
-import { notifyUser } from "../lib/notify-user";
+import { broadcastNewChallengeLobbyWhatsApp, notifyUser } from "../lib/notify-user";
 import { uploadMatchResultProofImage } from "../lib/match-result-proof-storage";
 import { publicApiBaseUrl } from "../lib/public-api-url";
 
@@ -311,6 +311,14 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     customLines: mergedCustom.value,
     teamName,
   });
+
+  void broadcastNewChallengeLobbyWhatsApp({
+    challengeId: challenge.id,
+    title: challenge.title,
+    mode: challenge.mode,
+    scheduledAt: challenge.scheduledAt,
+    creatorUserId: userId,
+  }).catch(() => {});
 
   return res.status(201).json(await buildChallengeResponse(challenge));
 });
@@ -850,7 +858,7 @@ router.post("/:challengeId/room", requireAuth, async (req: AuthRequest, res) => 
         await notifyUser(m.userId, {
           type: "match_starting",
           title: "Match starting",
-          message: `Room is ready! Room ID: ${roomId}`,
+          message: `Room is ready!\nRoom ID: ${roomId}\nPassword: ${roomPassword ?? "—"}`,
           challengeId,
         });
       }
