@@ -31,11 +31,41 @@ router.put("/:userId/update", requireAuth, async (req: AuthRequest, res) => {
   if (!userId) return res.status(400).json({ error: "bad_request", message: "Missing user id" });
   if (req.userId !== userId) return res.status(403).json({ error: "forbidden", message: "Cannot update another user" });
 
+  const existingSnap = await collections.users.doc(userId).get();
+  if (!existingSnap.exists) return res.status(404).json({ error: "not_found", message: "User not found" });
+  const existingUser = existingSnap.data() as UserDoc;
+
   const parsed = UpdateUserBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
 
   const { freefireUid, ign, gender, whatsappPhone, email } = parsed.data;
   const updates: Record<string, unknown> = {};
+
+  const legacyWhatsapp = (existingUser as unknown as { whatsapp?: string | null }).whatsapp;
+  let effectiveWhatsapp = normalizeWhatsappInput(
+    existingUser.whatsappPhone ?? legacyWhatsapp ?? undefined,
+  );
+  if (whatsappPhone !== undefined) {
+    const n = normalizeWhatsappInput(whatsappPhone);
+    if (!n) {
+      return res.status(400).json({
+        error: "validation",
+        message: "Invalid WhatsApp number. Include country code with at least 10 digits.",
+      });
+    }
+    effectiveWhatsapp = n;
+  }
+  if (!effectiveWhatsapp) {
+    return res.status(400).json({
+      error: "validation",
+      message: "WhatsApp number is required on your profile.",
+    });
+  }
+
+  // Always write canonical WhatsApp on profile update so Firestore reliably stores `whatsappPhone`
+  // (merge + partial payloads alone have been flaky for some clients).
+  updates.whatsappPhone = effectiveWhatsapp;
+
   if (freefireUid !== undefined) {
     const uidSnap = await collections.users.where("freefireUid", "==", freefireUid).limit(1).get();
     if (!uidSnap.empty) {
@@ -48,9 +78,6 @@ router.put("/:userId/update", requireAuth, async (req: AuthRequest, res) => {
   }
   if (ign !== undefined) updates.ign = ign;
   if (gender !== undefined) updates.gender = gender;
-  if (whatsappPhone !== undefined) {
-    updates.whatsappPhone = normalizeWhatsappInput(whatsappPhone);
-  }
   if (email !== undefined) {
     const e = email?.trim();
     updates.email = e ? e : null;

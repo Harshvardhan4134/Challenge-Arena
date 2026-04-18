@@ -22,6 +22,8 @@ export const registerBodyUsernameMax = 30;
 
 export const registerBodyPasswordMin = 6;
 
+export const registerBodyWhatsappPhoneMin = 10;
+
 export const RegisterBody = zod.object({
   username: zod
     .string()
@@ -32,6 +34,12 @@ export const RegisterBody = zod.object({
   freefireUid: zod.string(),
   ign: zod.string().optional(),
   gender: zod.enum(["male", "female", "other"]).nullish(),
+  whatsappPhone: zod
+    .string()
+    .min(registerBodyWhatsappPhoneMin)
+    .describe(
+      "WhatsApp number with country code (at least 10 digits; spaces\/+ allowed).",
+    ),
 });
 
 /**
@@ -163,10 +171,20 @@ export const UpdateUserParams = zod.object({
   userId: zod.coerce.string(),
 });
 
+export const updateUserBodyWhatsappPhoneMin = 10;
+
 export const UpdateUserBody = zod.object({
   freefireUid: zod.string().optional(),
   ign: zod.string().optional(),
   gender: zod.enum(["male", "female", "other"]).nullish(),
+  email: zod.string().email().nullish(),
+  whatsappPhone: zod
+    .string()
+    .min(updateUserBodyWhatsappPhoneMin)
+    .optional()
+    .describe(
+      "Required if the account has no saved number yet; cannot be cleared once set (omit to keep current).",
+    ),
 });
 
 export const UpdateUserResponse = zod.object({

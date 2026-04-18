@@ -6,6 +6,7 @@ import { firebaseAuth, googleProvider, isFirebaseConfigured } from "@/lib/fireba
 import { exchangeGoogleToken } from "@/lib/google-auth";
 import { fetchIgnForUid } from "@/lib/freefire-lookup";
 import { getPostAuthPath } from "@/lib/redirect-after-auth";
+import { hasEnoughWhatsappDigits } from "@/lib/whatsapp-valid";
 import { signInWithPopup } from "firebase/auth";
 import { Swords, Eye, EyeOff, Mail, Lock, Gamepad2, Hash, Phone } from "lucide-react";
 
@@ -30,6 +31,7 @@ export default function Register() {
     gender: "",
     whatsappPhone: "",
   });
+  const [googleNeedsWhatsappOnly, setGoogleNeedsWhatsappOnly] = useState(false);
 
   const { mutate, isPending } = useRegister({
     mutation: {
@@ -46,12 +48,17 @@ export default function Register() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const wa = form.whatsappPhone.trim();
+    if (!hasEnoughWhatsappDigits(wa)) {
+      setError("Enter a valid WhatsApp number with country code (at least 10 digits).");
+      return;
+    }
     mutate({
       data: {
         username: form.ign.trim(),
         password: form.password,
         email: form.email || undefined,
-        whatsappPhone: form.whatsappPhone.trim() || undefined,
+        whatsappPhone: wa,
         freefireUid: form.freefireUid,
         ign: form.ign.trim() || undefined,
         gender: (form.gender as "male" | "female" | "other") || undefined,
@@ -130,6 +137,7 @@ export default function Register() {
       const { status, body } = await exchangeGoogleToken({ idToken });
 
       if (status === 428 && body.needsProfileCompletion) {
+        setGoogleNeedsWhatsappOnly(!!body.needsWhatsappOnly);
         setGoogleProfileForm((prev) => ({
           ...prev,
           username: body.suggested?.username ?? prev.username,
@@ -155,16 +163,25 @@ export default function Register() {
   const submitGoogleProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const wa = googleProfileForm.whatsappPhone.trim();
+    if (!hasEnoughWhatsappDigits(wa)) {
+      setError("Enter a valid WhatsApp number with country code (at least 10 digits).");
+      return;
+    }
     setIsGooglePending(true);
     try {
-      const { status, body } = await exchangeGoogleToken({
-        idToken: googleIdToken,
-        username: googleProfileForm.ign.trim() || googleProfileForm.username.trim(),
-        freefireUid: googleProfileForm.freefireUid,
-        ign: googleProfileForm.ign.trim() || undefined,
-        gender: (googleProfileForm.gender as "male" | "female" | "other") || undefined,
-        whatsappPhone: googleProfileForm.whatsappPhone.trim() || undefined,
-      });
+      const { status, body } = await exchangeGoogleToken(
+        googleNeedsWhatsappOnly
+          ? { idToken: googleIdToken, whatsappPhone: wa }
+          : {
+              idToken: googleIdToken,
+              username: googleProfileForm.ign.trim() || googleProfileForm.username.trim(),
+              freefireUid: googleProfileForm.freefireUid,
+              ign: googleProfileForm.ign.trim() || undefined,
+              gender: (googleProfileForm.gender as "male" | "female" | "other") || undefined,
+              whatsappPhone: wa,
+            },
+      );
 
       if (status >= 400 || !body.token) {
         setError(body.message || "Could not complete Google sign up.");
@@ -172,6 +189,7 @@ export default function Register() {
       }
 
       setShowGoogleProfileModal(false);
+      setGoogleNeedsWhatsappOnly(false);
       setAuthToken(body.token);
       navigate(getPostAuthPath());
     } finally {
@@ -402,64 +420,86 @@ export default function Register() {
           <div className="bg-black px-5 py-3">
             <div className="display-font text-2xl text-[#FFE600]">COMPLETE YOUR PROFILE</div>
           </div>
-          <form onSubmit={submitGoogleProfile} className="p-5 space-y-3">
-            <div>
-              <label className="section-label block mb-1">USERNAME *</label>
-              <input
-                type="text"
-                required
-                minLength={3}
-                maxLength={30}
-                value={googleProfileForm.username}
-                onChange={setGoogleField("username")}
-                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
-              />
-            </div>
-            <div>
-              <label className="section-label block mb-1">FREE FIRE UID *</label>
-              <input
-                type="text"
-                required
-                value={googleProfileForm.freefireUid}
-                onChange={setGoogleField("freefireUid")}
-                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
-              />
-              <div className="flex gap-2 mt-2">
-                <select
-                  value={googleLookupRegion}
-                  onChange={(e) => setGoogleLookupRegion(e.target.value)}
-                  className="px-2 py-2 bg-white border-2 border-black text-xs font-bold focus:outline-none focus:border-[#FF6B00]"
-                >
-                  <option value="IND">IND</option>
-                  <option value="SG">SG</option>
-                  <option value="BR">BR</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={fetchIgnForGoogleProfile}
-                  disabled={isFetchingGoogleIgn}
-                  className="btn-brutal px-3 py-2 bg-white text-black text-[10px] disabled:opacity-60"
-                >
-                  {isFetchingGoogleIgn ? "FETCHING..." : "FETCH IGN FROM UID"}
-                </button>
-              </div>
-              {googleLookupError && (
-                <p className="text-[10px] font-bold text-[#FF1E56] mt-1">{googleLookupError}</p>
-              )}
-              <p className="text-[10px] font-mono text-gray-600 mt-1.5 leading-relaxed border-l-2 border-[#FF6B00] pl-2">
-                UID lookup broken? Enter your exact <strong>IGN</strong> next — we use it as your username.
+          <form onSubmit={submitGoogleProfile} className="p-5 space-y-3" noValidate={googleNeedsWhatsappOnly}>
+            {googleNeedsWhatsappOnly && (
+              <p className="text-xs font-bold text-gray-700 border-l-2 border-[#FF6B00] pl-2">
+                Add your WhatsApp number for <span className="font-mono">{googleProfileForm.username || "your account"}</span> to finish signing in.
               </p>
-            </div>
-            <div>
-              <label className="section-label block mb-1">IGN *</label>
-              <input
-                type="text"
-                required
-                value={googleProfileForm.ign}
-                onChange={setGoogleField("ign")}
-                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
-              />
-            </div>
+            )}
+            {!googleNeedsWhatsappOnly && (
+              <>
+                <div>
+                  <label className="section-label block mb-1">USERNAME *</label>
+                  <input
+                    type="text"
+                    required
+                    minLength={3}
+                    maxLength={30}
+                    value={googleProfileForm.username}
+                    onChange={setGoogleField("username")}
+                    className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+                  />
+                </div>
+                <div>
+                  <label className="section-label block mb-1">FREE FIRE UID *</label>
+                  <input
+                    type="text"
+                    required
+                    value={googleProfileForm.freefireUid}
+                    onChange={setGoogleField("freefireUid")}
+                    className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <select
+                      value={googleLookupRegion}
+                      onChange={(e) => setGoogleLookupRegion(e.target.value)}
+                      className="px-2 py-2 bg-white border-2 border-black text-xs font-bold focus:outline-none focus:border-[#FF6B00]"
+                    >
+                      <option value="IND">IND</option>
+                      <option value="SG">SG</option>
+                      <option value="BR">BR</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={fetchIgnForGoogleProfile}
+                      disabled={isFetchingGoogleIgn}
+                      className="btn-brutal px-3 py-2 bg-white text-black text-[10px] disabled:opacity-60"
+                    >
+                      {isFetchingGoogleIgn ? "FETCHING..." : "FETCH IGN FROM UID"}
+                    </button>
+                  </div>
+                  {googleLookupError && (
+                    <p className="text-[10px] font-bold text-[#FF1E56] mt-1">{googleLookupError}</p>
+                  )}
+                  <p className="text-[10px] font-mono text-gray-600 mt-1.5 leading-relaxed border-l-2 border-[#FF6B00] pl-2">
+                    UID lookup broken? Enter your exact <strong>IGN</strong> next — we use it as your username.
+                  </p>
+                </div>
+                <div>
+                  <label className="section-label block mb-1">IGN *</label>
+                  <input
+                    type="text"
+                    required
+                    value={googleProfileForm.ign}
+                    onChange={setGoogleField("ign")}
+                    className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+                  />
+                </div>
+                <div>
+                  <label className="section-label block mb-1">GENDER</label>
+                  <select
+                    value={googleProfileForm.gender}
+                    onChange={setGoogleField("gender")}
+                    className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
+                  >
+                    <option value="">Prefer not to say</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </>
+            )}
             <div>
               <label className="section-label block mb-1">WHATSAPP (MATCH ALERTS) *</label>
               <input
@@ -470,19 +510,6 @@ export default function Register() {
                 className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
                 placeholder="+country code and number"
               />
-            </div>
-            <div>
-              <label className="section-label block mb-1">GENDER</label>
-              <select
-                value={googleProfileForm.gender}
-                onChange={setGoogleField("gender")}
-                className="w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold focus:outline-none focus:border-[#FF6B00]"
-              >
-                <option value="">Prefer not to say</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
             </div>
             <button
               type="submit"

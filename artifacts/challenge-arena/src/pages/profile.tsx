@@ -9,6 +9,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
 import { clearAuthToken } from "@/lib/auth";
 import { fetchIgnForUid } from "@/lib/freefire-lookup";
+import { hasEnoughWhatsappDigits } from "@/lib/whatsapp-valid";
 import { ArrowLeft, Edit2, Save, X, Trophy, Target, Flame, Hash, LogOut } from "lucide-react";
 
 export default function Profile() {
@@ -31,12 +32,24 @@ export default function Profile() {
   const [lookupError, setLookupError] = useState("");
   const [lookupSuccess, setLookupSuccess] = useState("");
   const [isFetchingIgn, setIsFetchingIgn] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const updateUser = useUpdateUser({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
+        qc.setQueryData(getGetMeQueryKey(), data);
         qc.invalidateQueries({ queryKey: getGetMeQueryKey() });
+        qc.invalidateQueries({ queryKey: ["/api/admin/users"] });
+        if (userId && userId !== "me") {
+          qc.invalidateQueries({ queryKey: [`/api/users/${userId}`] });
+        }
         setEditing(false);
+        setSaveError("");
+      },
+      onError: (err: unknown) => {
+        const msg =
+          err && typeof err === "object" && "data" in err && (err as { data?: { message?: string } }).data?.message;
+        setSaveError(typeof msg === "string" ? msg : "Could not save profile.");
       },
     },
   });
@@ -52,6 +65,7 @@ export default function Profile() {
 
   const startEdit = () => {
     const u = user.data;
+    setSaveError("");
     setForm({
       email: u?.email || "",
       whatsappPhone: u?.whatsappPhone || "",
@@ -89,12 +103,22 @@ export default function Profile() {
   };
 
   const handleSave = () => {
-    if (!userId) return;
+    const targetUserId = isOwnProfile ? me.data?.id : userId;
+    if (!targetUserId || targetUserId === "me") {
+      setSaveError("Profile is still loading. Wait a moment and try again.");
+      return;
+    }
+    setSaveError("");
+    const wa = form.whatsappPhone.trim();
+    if (!hasEnoughWhatsappDigits(wa)) {
+      setSaveError("WhatsApp is required: include country code (at least 10 digits).");
+      return;
+    }
     updateUser.mutate({
-      userId,
+      userId: targetUserId,
       data: {
         email: form.email.trim() || null,
-        whatsappPhone: form.whatsappPhone.trim() || null,
+        whatsappPhone: wa,
         freefireUid: form.freefireUid || undefined,
         ign: form.ign || undefined,
         gender: (form.gender as "male" | "female" | "other") || undefined,
@@ -155,6 +179,11 @@ export default function Profile() {
             {u?.email && !editing && (
               <div className="text-xs font-mono text-gray-600 mt-1">Email: {u.email}</div>
             )}
+            {!u?.whatsappPhone && !editing && isOwnProfile && (
+              <div className="text-xs font-black text-[#FF6B00] mt-2 border-2 border-black bg-white px-2 py-1.5">
+                Add your WhatsApp number (edit profile) — required for match alerts.
+              </div>
+            )}
             {u?.whatsappPhone && !editing && (
               <div className="text-xs font-mono text-gray-600 mt-1">WhatsApp: {u.whatsappPhone}</div>
             )}
@@ -165,7 +194,15 @@ export default function Profile() {
             {editing && isOwnProfile && (
               <div className="border-t-2 border-black mt-3 pt-3 space-y-2">
                 <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="Email (for match alerts)" className={inputCls} />
-                <input type="tel" value={form.whatsappPhone} onChange={e => setForm(f => ({ ...f, whatsappPhone: e.target.value }))} placeholder="WhatsApp with country code" className={inputCls} />
+                <label className="text-[10px] font-black text-gray-600 block">WHATSAPP *</label>
+                <input
+                  type="tel"
+                  required
+                  value={form.whatsappPhone}
+                  onChange={e => setForm(f => ({ ...f, whatsappPhone: e.target.value }))}
+                  placeholder="WhatsApp with country code (required)"
+                  className={inputCls}
+                />
                 <input type="text" value={form.freefireUid} onChange={e => setForm(f => ({ ...f, freefireUid: e.target.value }))} placeholder="Free Fire UID" className={inputCls} />
                 <div className="flex gap-2">
                   <select
@@ -188,6 +225,7 @@ export default function Profile() {
                 </div>
                 {lookupError && <p className="text-[10px] font-bold text-[#FF1E56]">{lookupError}</p>}
                 {lookupSuccess && <p className="text-[10px] font-bold text-[#00854B]">{lookupSuccess}</p>}
+                {saveError && <p className="text-[10px] font-bold text-[#FF1E56]">{saveError}</p>}
                 <p className="text-[10px] font-mono text-gray-600 leading-relaxed border-l-2 border-[#FF6B00] pl-2">
                   If UID fetch fails, enter your <strong>IGN</strong> here — no lookup required.
                 </p>

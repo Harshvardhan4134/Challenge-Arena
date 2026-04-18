@@ -11,4 +11,10 @@ export interface UpdateUserBody {
   freefireUid?: string;
   ign?: string;
   gender?: UpdateUserBodyGender;
+  email?: string | null;
+  /**
+   * Required if the account has no saved number yet; cannot be cleared once set (omit to keep current).
+   * @minLength 10
+   */
+  whatsappPhone?: string;
 }

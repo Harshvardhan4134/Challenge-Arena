@@ -19,4 +19,9 @@ export interface RegisterBody {
   freefireUid: string;
   ign?: string;
   gender?: RegisterBodyGender;
+  /**
+   * WhatsApp number with country code (at least 10 digits; spaces/+ allowed).
+   * @minLength 10
+   */
+  whatsappPhone: string;
 }

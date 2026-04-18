@@ -13,6 +13,8 @@ export type GoogleAuthResponse = {
   token?: string;
   user?: unknown;
   needsProfileCompletion?: boolean;
+  /** True when an existing account is missing WhatsApp; only idToken + whatsappPhone are required on retry. */
+  needsWhatsappOnly?: boolean;
   suggested?: {
     username?: string;
     email?: string;

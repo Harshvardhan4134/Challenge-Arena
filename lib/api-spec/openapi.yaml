@@ -921,10 +921,15 @@ components:
           type: string
           enum: [male, female, other]
           nullable: true
+        whatsappPhone:
+          type: string
+          minLength: 10
+          description: WhatsApp number with country code (at least 10 digits; spaces/+ allowed).
       required:
         - username
         - password
         - freefireUid
+        - whatsappPhone
 
     LoginBody:
       type: object
@@ -1011,6 +1016,14 @@ components:
           type: string
           enum: [male, female, other]
           nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        whatsappPhone:
+          type: string
+          minLength: 10
+          description: Required if the account has no saved number yet; cannot be cleared once set (omit to keep current).
 
     Challenge:
       type: object

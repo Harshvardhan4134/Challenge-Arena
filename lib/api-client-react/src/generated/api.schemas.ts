@@ -41,6 +41,11 @@ export interface RegisterBody {
   freefireUid: string;
   ign?: string;
   gender?: RegisterBodyGender;
+  /**
+   * WhatsApp number with country code (at least 10 digits; spaces/+ allowed).
+   * @minLength 10
+   */
+  whatsappPhone: string;
 }
 
 export interface LoginBody {
@@ -99,6 +104,12 @@ export interface UpdateUserBody {
   freefireUid?: string;
   ign?: string;
   gender?: UpdateUserBodyGender;
+  email?: string | null;
+  /**
+   * Required if the account has no saved number yet; cannot be cleared once set (omit to keep current).
+   * @minLength 10
+   */
+  whatsappPhone?: string;
 }
 
 export type ChallengeMode = (typeof ChallengeMode)[keyof typeof ChallengeMode];

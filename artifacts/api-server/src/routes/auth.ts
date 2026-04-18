@@ -81,6 +81,13 @@ router.post("/register", async (req, res) => {
     return res.status(400).json({ error: "Validation error", message: parsed.error.message });
   }
   const { username, password, email, freefireUid, ign, gender, whatsappPhone } = parsed.data;
+  const normalizedWa = normalizeWhatsappInput(whatsappPhone);
+  if (!normalizedWa) {
+    return res.status(400).json({
+      error: "validation",
+      message: "Invalid WhatsApp number. Include country code with at least 10 digits.",
+    });
+  }
 
   const existing = await collections.users.where("username", "==", username).limit(1).get();
   if (!existing.empty) {
@@ -100,7 +107,7 @@ router.post("/register", async (req, res) => {
     username,
     passwordHash,
     email: email ?? null,
-    whatsappPhone: normalizeWhatsappInput(whatsappPhone),
+    whatsappPhone: normalizedWa,
     freefireUid: freefireUid ?? null,
     ign: ign ?? null,
     gender: (gender as "male" | "female" | "other" | undefined) ?? null,
@@ -200,10 +207,10 @@ router.post("/google", async (req, res) => {
     ? (existingUserSnap.docs[0].data() as UserDoc)
     : undefined;
 
-  if (!existingUserDoc && (!username || !freefireUid)) {
+  if (!existingUserDoc && (!username || !freefireUid || !normalizeWhatsappInput(whatsappPhone))) {
     return res.status(428).json({
       error: "profile_incomplete",
-      message: "Complete required profile fields to finish Google sign up",
+      message: "Complete required profile fields (including WhatsApp with country code) to finish Google sign up",
       needsProfileCompletion: true,
       suggested: {
         username: getSuggestedUsername(decodedToken.email),
@@ -218,6 +225,26 @@ router.post("/google", async (req, res) => {
       await collections.users.doc(existingUserDoc.id).set({ email }, { merge: true });
       merged = { ...existingUserDoc, email };
     }
+
+    const incomingWa = normalizeWhatsappInput(whatsappPhone);
+    const storedWa = normalizeWhatsappInput(merged.whatsappPhone);
+    if (!storedWa && !incomingWa) {
+      return res.status(428).json({
+        error: "profile_incomplete",
+        message: "WhatsApp number is required. Enter it below to continue.",
+        needsProfileCompletion: true,
+        needsWhatsappOnly: true,
+        suggested: {
+          username: merged.username,
+          email: merged.email ?? decodedToken.email ?? "",
+        },
+      });
+    }
+    if (incomingWa && incomingWa !== storedWa) {
+      await collections.users.doc(merged.id).set({ whatsappPhone: incomingWa }, { merge: true });
+      merged = { ...merged, whatsappPhone: incomingWa };
+    }
+
     if (isUserBanned(merged)) {
       return res.status(403).json({
         error: "forbidden",
@@ -241,6 +268,14 @@ router.post("/google", async (req, res) => {
     }
   }
 
+  const newUserWa = normalizeWhatsappInput(whatsappPhone);
+  if (!newUserWa) {
+    return res.status(400).json({
+      error: "validation",
+      message: "WhatsApp number is required (include country code, at least 10 digits).",
+    });
+  }
+
   const generatedPasswordHash = hashPassword(`${firebaseUid}:${crypto.randomBytes(16).toString("hex")}`);
   const userId = crypto.randomUUID();
   const user: UserDoc = {
@@ -248,7 +283,7 @@ router.post("/google", async (req, res) => {
     username: username!,
     passwordHash: generatedPasswordHash,
     email,
-    whatsappPhone: normalizeWhatsappInput(whatsappPhone),
+    whatsappPhone: newUserWa,
     freefireUid: freefireUid!,
     ign: ign ?? decodedToken.name ?? null,
     gender: (gender as "male" | "female" | "other" | undefined) ?? null,
