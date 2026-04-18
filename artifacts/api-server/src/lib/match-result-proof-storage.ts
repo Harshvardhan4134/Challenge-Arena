@@ -31,15 +31,24 @@ export async function uploadMatchResultProofImage(params: {
   const downloadToken = crypto.randomUUID();
   const file = bucket.file(objectPath);
 
-  await file.save(params.buffer, {
-    resumable: false,
-    metadata: {
-      contentType: params.contentType,
+  try {
+    await file.save(params.buffer, {
+      resumable: false,
       metadata: {
-        firebaseStorageDownloadTokens: downloadToken,
+        contentType: params.contentType,
+        metadata: {
+          firebaseStorageDownloadTokens: downloadToken,
+        },
       },
-    },
-  });
+    });
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `Upload to bucket "${bucketName}" failed: ${detail}. In Render, set FIREBASE_STORAGE_BUCKET to the exact ` +
+        `bucket id from Firebase Console → Storage (often project-id.appspot.com or project-id.firebasestorage.app). ` +
+        `Ensure the service account has Storage Admin and the Storage API is enabled.`,
+    );
+  }
 
   const encodedPath = encodeURIComponent(objectPath);
   return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodedPath}?alt=media&token=${downloadToken}`;
