@@ -231,6 +231,9 @@ export default function ChallengeDetail() {
   const isPendingChallengerLeader = Boolean(pendingTeamB?.leaderId && pendingTeamB.leaderId === userId);
   const canAcceptPendingChallenger = isTeamALeader && !c.teamB && !!pendingTeamB;
   const hasMatchStarted = Date.now() >= new Date(c.scheduledAt).getTime();
+  /** Room shared and teams locked in — host can submit result after scheduled time (not gated on hasMatchStarted). */
+  const canSubmitOrAwaitResult =
+    Boolean(c.roomId) && (c.status === "in_progress" || c.status === "full");
 
   const canJoinA = !inChallenge && !inPendingTeamB && !pendingTeamB && (c.teamA?.players.length ?? 0) < (c.teamA?.maxSize ?? 1) && c.status === "open" && !hasMatchStarted;
   const canJoinB = !inChallenge && !inPendingTeamB && !pendingTeamB && c.status === "open" && !hasMatchStarted;
@@ -636,8 +639,8 @@ export default function ChallengeDetail() {
           </div>
         )}
 
-        {/* Submit result — ONLY the challenge creator (Team A leader) */}
-        {isTeamALeader && !hasMatchStarted && (c.status === "in_progress" || c.status === "full") && (
+        {/* Submit result — ONLY the challenge creator (Team A leader); shown after room is shared, including after scheduled start */}
+        {isTeamALeader && canSubmitOrAwaitResult && (
           <div className="card-brutal bg-white p-4">
             <div className="flex items-center gap-1.5 mb-1">
               <Trophy className="w-3.5 h-3.5 text-[#FF6B00]" />
@@ -720,7 +723,7 @@ export default function ChallengeDetail() {
         )}
 
         {/* Non-creator members see a notice instead */}
-        {!isTeamALeader && inChallenge && !hasMatchStarted && (c.status === "in_progress" || c.status === "full") && (
+        {!isTeamALeader && inChallenge && canSubmitOrAwaitResult && (
           <div className="card-brutal-sm bg-white p-3 flex items-center gap-2">
             <Trophy className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-xs font-black text-gray-600">RESULT IS SUBMITTED BY THE CHALLENGE CREATOR</span>
