@@ -7,11 +7,14 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
-import { ArrowLeft, Send, Shield, Trophy, Key, Lock, MessageSquare, Users, Clock, Copy, Check, Link2 } from "lucide-react";
+import { ArrowLeft, Send, Shield, Trophy, Key, Lock, MessageSquare, Users, Clock, Copy, Check, Link2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatChallengeRuleId } from "@/lib/challenge-rules";
 import { apiUrl } from "@/lib/api-url";
 import { getAuthToken } from "@/lib/auth";
+
+/** Max file size for match proof before upload to Firebase Storage (via API). */
+const RESULT_PROOF_MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 function useCountdown(target: string) {
   const [label, setLabel] = useState("");
@@ -75,7 +78,9 @@ export default function ChallengeDetail() {
   const [roomId, setRoomId] = useState("");
   const [roomPass, setRoomPass] = useState("");
   const [resultSide, setResultSide] = useState<"teamA" | "teamB" | "not_played" | "">("");
-  const [resultProofUrl, setResultProofUrl] = useState("");
+  const [resultProofDataUrl, setResultProofDataUrl] = useState("");
+  const proofFileInputRef = useRef<HTMLInputElement>(null);
+  const [proofUploading, setProofUploading] = useState(false);
   const [error, setError] = useState("");
 
   // Team name for joining as Team B leader
@@ -89,7 +94,17 @@ export default function ChallengeDetail() {
 
   const joinChallenge = useJoinChallenge({ mutation: { onSuccess: () => { invalidate(); setShowJoinBForm(false); setJoinTeamName(""); }, onError: (e: any) => setError(e?.data?.message || "Failed to join") } });
   const leaveChallenge = useLeaveChallenge({ mutation: { onSuccess: invalidate } });
-  const submitResult = useSubmitResult({ mutation: { onSuccess: invalidate, onError: (e: any) => setError(e?.data?.message || "Failed to submit") } });
+  const submitResult = useSubmitResult({
+    mutation: {
+      onSuccess: () => {
+        invalidate();
+        setResultProofDataUrl("");
+        setResultSide("");
+        if (proofFileInputRef.current) proofFileInputRef.current.value = "";
+      },
+      onError: (e: any) => setError(e?.data?.message || "Failed to submit"),
+    },
+  });
   const shareRoom = useShareRoomDetails({ mutation: { onSuccess: invalidate, onError: (e: any) => setError(e?.data?.message || "Failed to share room") } });
   const sendMsg = useSendMessage({ mutation: { onSuccess: () => { setMsgText(""); invalidate(); } } });
 
@@ -204,14 +219,75 @@ export default function ChallengeDetail() {
     if (!res.ok) return setError(body?.message || "Could not accept challenger.");
     invalidate();
   };
-  const onPickProofImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPickProofImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setError("");
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose an image file (PNG, JPG, etc.).");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > RESULT_PROOF_MAX_FILE_BYTES) {
+      setError(`Image must be ${RESULT_PROOF_MAX_FILE_BYTES / (1024 * 1024)}MB or smaller.`);
+      e.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === "string") setResultProofUrl(reader.result);
+      if (typeof reader.result === "string") setResultProofDataUrl(reader.result);
     };
     reader.readAsDataURL(file);
+  };
+
+  const clearProofImage = () => {
+    setResultProofDataUrl("");
+    if (proofFileInputRef.current) proofFileInputRef.current.value = "";
+  };
+
+  const uploadProofToFirebaseStorage = async (): Promise<string> => {
+    const token = getAuthToken();
+    if (!token) throw new Error("Please login again.");
+    const res = await fetch(apiUrl(`/api/challenges/${challengeId}/result-proof-upload`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ imageBase64: resultProofDataUrl }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(
+        typeof data?.message === "string" ? data.message : "Could not upload screenshot to storage.",
+      );
+    }
+    if (typeof data.url !== "string" || !data.url) {
+      throw new Error("Upload did not return an image URL.");
+    }
+    return data.url;
+  };
+
+  const handleSubmitMatchResult = async () => {
+    if (!resultSide) return;
+    setError("");
+    let screenshotUrl = "";
+    try {
+      if (resultSide !== "not_played") {
+        if (!resultProofDataUrl.trim()) {
+          setError("Upload a screenshot for win/loss results.");
+          return;
+        }
+        setProofUploading(true);
+        screenshotUrl = await uploadProofToFirebaseStorage();
+      } else if (resultProofDataUrl.trim()) {
+        setProofUploading(true);
+        screenshotUrl = await uploadProofToFirebaseStorage();
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed.");
+      return;
+    } finally {
+      setProofUploading(false);
+    }
+    submitResult.mutate({ challengeId, data: { winningSide: resultSide, screenshotUrl } });
   };
 
   return (
@@ -526,28 +602,52 @@ export default function ChallengeDetail() {
             </div>
             <div className="space-y-2 mb-3">
               <div className="text-[10px] font-mono text-gray-500">
-                Proof image is required for win/loss results. For "Match not taken", proof is optional.
+                Screenshot is stored in Firebase Storage, then linked to your result. Required for win/loss; optional for
+                &quot;Match not taken&quot;. Max {RESULT_PROOF_MAX_FILE_BYTES / (1024 * 1024)}MB.
               </div>
               <input
-                type="url"
-                value={resultProofUrl}
-                onChange={(e) => setResultProofUrl(e.target.value)}
-                placeholder={resultSide === "not_played" ? "Result proof image URL (optional for not taken)" : "Result proof image URL (required)"}
-                className={inputCls}
-              />
-              <input
+                ref={proofFileInputRef}
+                id="result-proof-file"
                 type="file"
                 accept="image/*"
                 onChange={onPickProofImage}
-                className="w-full text-xs font-mono"
+                className="sr-only"
               />
+              <label
+                htmlFor="result-proof-file"
+                className="flex items-center justify-center gap-2 w-full py-3 border-2 border-dashed border-black bg-[#FFE600]/20 cursor-pointer hover:bg-[#FFE600]/40 transition-colors"
+              >
+                <Upload className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-black text-black">
+                  {resultProofDataUrl ? "Replace screenshot" : "Choose screenshot image"}
+                </span>
+              </label>
+              {resultProofDataUrl ? (
+                <div className="relative border-2 border-black bg-gray-50 p-2 inline-block max-w-full">
+                  <button
+                    type="button"
+                    onClick={clearProofImage}
+                    className="absolute -top-2 -right-2 w-7 h-7 bg-[#FF1E56] text-white border-2 border-black flex items-center justify-center hover:opacity-90"
+                    aria-label="Remove screenshot"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                  <img src={resultProofDataUrl} alt="Result proof preview" className="max-h-48 max-w-full object-contain" />
+                </div>
+              ) : null}
             </div>
             <button
-              onClick={() => resultSide && submitResult.mutate({ challengeId, data: { winningSide: resultSide, screenshotUrl: resultProofUrl } })}
-              disabled={!resultSide || (resultSide !== "not_played" && !resultProofUrl.trim()) || submitResult.isPending}
+              type="button"
+              onClick={() => void handleSubmitMatchResult()}
+              disabled={
+                !resultSide ||
+                (resultSide !== "not_played" && !resultProofDataUrl.trim()) ||
+                submitResult.isPending ||
+                proofUploading
+              }
               className="btn-brutal w-full py-2.5 bg-[#00854B] text-white text-sm disabled:opacity-50"
             >
-              {submitResult.isPending ? "SUBMITTING..." : "SUBMIT RESULT"}
+              {proofUploading ? "UPLOADING..." : submitResult.isPending ? "SUBMITTING..." : "SUBMIT RESULT"}
             </button>
           </div>
         )}

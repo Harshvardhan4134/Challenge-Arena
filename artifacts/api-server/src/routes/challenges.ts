@@ -18,8 +18,18 @@ import {
   type UserDoc,
 } from "../lib/firestore-db";
 import { notifyUser } from "../lib/notify-user";
+import { uploadMatchResultProofImage } from "../lib/match-result-proof-storage";
 
 const router = Router();
+
+const RESULT_PROOF_MAX_BYTES = 5 * 1024 * 1024;
+
+function challengeIdFromReq(req: { params: Record<string, string | string[] | undefined> }): string | undefined {
+  const raw = req.params["challengeId"];
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw) && typeof raw[0] === "string") return raw[0];
+  return undefined;
+}
 
 const MODE_SIZE: Record<string, number> = { "1v1": 1, "2v2": 2, "4v4": 4 };
 const RULE_ALLOWLIST = new Set([
@@ -346,8 +356,69 @@ router.post("/:challengeId/leave", requireAuth, async (req: AuthRequest, res) =>
   return res.status(200).json({ success: true, message: "Left challenge" });
 });
 
+/** Host uploads match proof image to Firebase Storage; returns HTTPS URL for `screenshotUrl` on submit result. */
+router.post("/:challengeId/result-proof-upload", requireAuth, async (req: AuthRequest, res) => {
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
+
+  const body = req.body as { imageBase64?: unknown };
+  const imageBase64 = typeof body.imageBase64 === "string" ? body.imageBase64.trim() : "";
+  if (!imageBase64) {
+    return res.status(400).json({ error: "validation", message: "imageBase64 is required" });
+  }
+
+  let buffer: Buffer;
+  let contentType: string;
+  const dataUrlMatch = imageBase64.match(/^data:([^;]+);base64,(.+)$/);
+  if (dataUrlMatch?.[1] && dataUrlMatch[2]) {
+    contentType = dataUrlMatch[1];
+    try {
+      buffer = Buffer.from(dataUrlMatch[2], "base64");
+    } catch {
+      return res.status(400).json({ error: "validation", message: "Invalid base64 image" });
+    }
+  } else {
+    try {
+      buffer = Buffer.from(imageBase64, "base64");
+    } catch {
+      return res.status(400).json({ error: "validation", message: "Invalid base64 image" });
+    }
+    contentType = "image/jpeg";
+  }
+
+  if (!contentType.startsWith("image/")) {
+    return res.status(400).json({ error: "validation", message: "Only image uploads are allowed" });
+  }
+  if (buffer.length === 0) {
+    return res.status(400).json({ error: "validation", message: "Empty image" });
+  }
+  if (buffer.length > RESULT_PROOF_MAX_BYTES) {
+    return res.status(400).json({
+      error: "validation",
+      message: `Image must be ${RESULT_PROOF_MAX_BYTES / (1024 * 1024)}MB or smaller`,
+    });
+  }
+
+  const userId = req.userId!;
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
+  if (challenge.creatorId !== userId) {
+    return res.status(403).json({ error: "forbidden", message: "Only the challenge host can upload result proof" });
+  }
+
+  try {
+    const url = await uploadMatchResultProofImage({ challengeId, buffer, contentType });
+    return res.status(200).json({ url });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Upload failed";
+    return res.status(503).json({ error: "storage_unavailable", message: msg });
+  }
+});
+
 router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) => {
-  const { challengeId } = req.params;
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
   const parsed = SubmitResultBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
 
