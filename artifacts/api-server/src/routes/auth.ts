@@ -2,7 +2,7 @@ import { Router } from "express";
 import { RegisterBody, LoginBody } from "@workspace/api-zod";
 import crypto from "crypto";
 import { firebaseAdminAuth } from "../lib/firebase-admin";
-import { collections, nowIso, type PlayerStatsDoc, type UserDoc } from "../lib/firestore-db";
+import { collections, nowIso, type AuthTokenDoc, type PlayerStatsDoc, type UserDoc } from "../lib/firestore-db";
 import { normalizeWhatsappInput } from "../lib/whatsapp-util";
 import { isUserBanned, toSafeUser } from "../lib/user-view";
 
@@ -16,10 +16,41 @@ function generateToken(userId: string): string {
   return Buffer.from(`${userId}:${Date.now()}:${crypto.randomBytes(16).toString("hex")}`).toString("base64");
 }
 
+/** In-process cache; authoritative mapping is Firestore `authTokens`. */
 const tokenStore = new Map<string, string>();
 
-export function getUserIdFromToken(token: string): string | null {
-  return tokenStore.get(token) || null;
+function authTokenDocId(token: string): string {
+  return crypto.createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+async function persistAuthToken(token: string, userId: string): Promise<void> {
+  tokenStore.set(token, userId);
+  await collections.authTokens.doc(authTokenDocId(token)).set({
+    userId,
+    createdAt: nowIso(),
+  } satisfies AuthTokenDoc);
+}
+
+async function revokeAuthToken(token: string): Promise<void> {
+  tokenStore.delete(token);
+  try {
+    await collections.authTokens.doc(authTokenDocId(token)).delete();
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Resolve bearer token to user id (Firestore-backed, with memory cache). */
+export async function resolveUserIdFromToken(token: string): Promise<string | null> {
+  const trimmed = token.trim();
+  if (!trimmed) return null;
+  const cached = tokenStore.get(trimmed);
+  if (cached) return cached;
+  const doc = await collections.authTokens.doc(authTokenDocId(trimmed)).get();
+  if (!doc.exists) return null;
+  const userId = (doc.data() as { userId: string }).userId;
+  tokenStore.set(trimmed, userId);
+  return userId;
 }
 
 async function getUserStats(userId: string): Promise<PlayerStatsDoc | null> {
@@ -89,7 +120,7 @@ router.post("/register", async (req, res) => {
   await collections.playerStats.doc(userId).set(stats);
 
   const token = generateToken(userId);
-  tokenStore.set(token, userId);
+  await persistAuthToken(token, userId);
 
   return res.status(201).json({ user: { ...toSafeUser(user), stats: null }, token });
 });
@@ -116,7 +147,7 @@ router.post("/login", async (req, res) => {
   }
 
   const token = generateToken(user.id);
-  tokenStore.set(token, user.id);
+  await persistAuthToken(token, user.id);
 
   const stats = await getUserStats(user.id);
   return res.status(200).json({ user: { ...toSafeUser(user), stats: stats || null }, token });
@@ -194,7 +225,7 @@ router.post("/google", async (req, res) => {
       });
     }
     const token = generateToken(merged.id);
-    tokenStore.set(token, merged.id);
+    await persistAuthToken(token, merged.id);
     const stats = await getUserStats(merged.id);
     return res.status(200).json({ user: { ...toSafeUser(merged), stats: stats || null }, token });
   }
@@ -237,7 +268,7 @@ router.post("/google", async (req, res) => {
   await collections.playerStats.doc(userId).set(stats);
 
   const token = generateToken(userId);
-  tokenStore.set(token, userId);
+  await persistAuthToken(token, userId);
   const safeUser = toSafeUser(user);
   return res.status(201).json({ user: { ...safeUser, stats: null }, token });
 });
@@ -246,7 +277,7 @@ router.post("/logout", async (req, res) => {
   const auth = req.headers.authorization;
   if (auth) {
     const token = auth.replace("Bearer ", "");
-    tokenStore.delete(token);
+    await revokeAuthToken(token);
   }
   return res.status(200).json({ success: true, message: "Logged out" });
 });
@@ -255,7 +286,7 @@ router.get("/me", async (req, res) => {
   const auth = req.headers.authorization;
   if (!auth) return res.status(401).json({ error: "unauthorized", message: "No token" });
   const token = auth.replace("Bearer ", "");
-  const userId = getUserIdFromToken(token);
+  const userId = await resolveUserIdFromToken(token);
   if (!userId) return res.status(401).json({ error: "unauthorized", message: "Invalid token" });
 
   const userDoc = await collections.users.doc(userId).get();

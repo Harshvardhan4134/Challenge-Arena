@@ -118,6 +118,12 @@ export type NotificationDoc = {
   createdAt: string;
 };
 
+/** Maps opaque bearer token (hashed doc id) to user; survives API restarts and multi-instance deploys. */
+export type AuthTokenDoc = {
+  userId: string;
+  createdAt: string;
+};
+
 export const collections = {
   users: firestore.collection("users"),
   playerStats: firestore.collection("playerStats"),
@@ -129,6 +135,7 @@ export const collections = {
   notifications: firestore.collection("notifications"),
   pushSubscriptions: firestore.collection("pushSubscriptions"),
   playerReports: firestore.collection("playerReports"),
+  authTokens: firestore.collection("authTokens"),
 };
 
 export function nowIso(): string {

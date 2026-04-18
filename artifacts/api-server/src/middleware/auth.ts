@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { getUserIdFromToken } from "../routes/auth";
+import { resolveUserIdFromToken } from "../routes/auth";
 import { collections, type UserDoc } from "../lib/firestore-db";
 import { isUserBanned } from "../lib/user-view";
 
@@ -11,7 +11,7 @@ export async function requireAuth(req: AuthRequest, res: Response, next: NextFun
   const auth = req.headers.authorization;
   if (!auth) return res.status(401).json({ error: "unauthorized", message: "No token" });
   const token = auth.replace("Bearer ", "");
-  const userId = getUserIdFromToken(token);
+  const userId = await resolveUserIdFromToken(token);
   if (!userId) return res.status(401).json({ error: "unauthorized", message: "Invalid token" });
 
   const userDoc = await collections.users.doc(userId).get();
@@ -32,7 +32,7 @@ export async function optionalAuth(req: AuthRequest, _res: Response, next: NextF
   const auth = req.headers.authorization;
   if (auth) {
     const token = auth.replace("Bearer ", "");
-    const userId = getUserIdFromToken(token);
+    const userId = await resolveUserIdFromToken(token);
     if (userId) {
       const userDoc = await collections.users.doc(userId).get();
       if (userDoc.exists) {
