@@ -318,6 +318,92 @@ paths:
               schema:
                 $ref: "#/components/schemas/SuccessResponse"
 
+  /challenges/{challengeId}/report:
+    post:
+      operationId: reportChallengePlayer
+      tags: [challenges]
+      summary: Report another player after the match (completed, disputed, or cancelled)
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportPlayerBody"
+      responses:
+        "201":
+          description: Report recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerReport"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Challenge not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /challenges/{challengeId}/rematch:
+    post:
+      operationId: rematchChallenge
+      tags: [challenges]
+      summary: Create a new open challenge from a finished match (same rules; you host Team A)
+      parameters:
+        - name: challengeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RematchChallengeBody"
+      responses:
+        "201":
+          description: Rematch challenge created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Challenge"
+        "400":
+          description: Invalid state or time
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not a participant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Challenge not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /challenges/{challengeId}/result:
     post:
       operationId: submitResult
@@ -710,6 +796,27 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /admin/player-reports:
+    get:
+      operationId: getAdminPlayerReports
+      tags: [admin]
+      summary: User-submitted player reports (post-match)
+      responses:
+        "200":
+          description: Reports newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlayerReport"
+        "403":
+          description: Not an admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /stats/overview:
     get:
       operationId: getStatsOverview
@@ -925,6 +1032,12 @@ components:
         customRule:
           type: string
           nullable: true
+          description: First custom line (legacy); use customRules for full list
+        customRules:
+          type: array
+          items:
+            type: string
+          description: All free-text custom rules for this match
         status:
           type: string
           enum: [open, full, in_progress, completed, cancelled, disputed]
@@ -1019,6 +1132,12 @@ components:
         customRule:
           type: string
           nullable: true
+          description: Optional single custom rule (legacy); prefer customRules for multiple
+        customRules:
+          type: array
+          items:
+            type: string
+          description: Multiple free-text custom rules (max 12,200 chars each)
         teamName:
           type: string
       required:
@@ -1027,6 +1146,62 @@ components:
         - scheduledAt
         - rules
         - teamName
+
+    ReportPlayerBody:
+      type: object
+      properties:
+        reportedUserId:
+          type: string
+        category:
+          type: string
+          enum: [cheating, harassment, fake_result, no_show, other]
+        details:
+          type: string
+          nullable: true
+          description: Extra context (required nuance for category "other")
+      required:
+        - reportedUserId
+        - category
+
+    RematchChallengeBody:
+      type: object
+      properties:
+        scheduledAt:
+          type: string
+          format: date-time
+        teamName:
+          type: string
+          nullable: true
+          description: Your new host team name; defaults to your team from the previous match
+      required:
+        - scheduledAt
+
+    PlayerReport:
+      type: object
+      properties:
+        id:
+          type: string
+        challengeId:
+          type: string
+        reporterId:
+          type: string
+        reportedUserId:
+          type: string
+        category:
+          type: string
+        details:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - challengeId
+        - reporterId
+        - reportedUserId
+        - category
+        - createdAt
 
     JoinChallengeBody:
       type: object

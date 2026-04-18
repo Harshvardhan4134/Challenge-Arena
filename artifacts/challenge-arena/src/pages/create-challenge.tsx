@@ -14,7 +14,7 @@ export default function CreateChallenge() {
   const [mode, setMode] = useState<"1v1" | "2v2" | "4v4">("1v1");
   const [scheduledAt, setScheduledAt] = useState("");
   const [rules, setRules] = useState<string[]>([]);
-  const [customRule, setCustomRule] = useState("");
+  const [customRuleLines, setCustomRuleLines] = useState<string[]>([""]);
   const [teamName, setTeamName] = useState("");
   const [error, setError] = useState("");
 
@@ -33,13 +33,14 @@ export default function CreateChallenge() {
     e.preventDefault();
     setError("");
     if (!scheduledAt) return setError("Please set a match date and time.");
+    const customRules = customRuleLines.map((l) => l.trim()).filter(Boolean);
     mutate({
       data: {
         title,
         mode,
         scheduledAt: new Date(scheduledAt).toISOString(),
         rules,
-        customRule: customRule.trim() || undefined,
+        ...(customRules.length ? { customRules } : {}),
         teamName: teamName || `${mode} Squad`,
       },
     });
@@ -131,14 +132,39 @@ export default function CreateChallenge() {
                 </button>
               ))}
             </div>
-            <div className="mt-2">
-              <input
-                type="text"
-                value={customRule}
-                onChange={e => setCustomRule(e.target.value)}
-                className={inputCls}
-                placeholder="Custom rule (optional)..."
-              />
+            <div className="mt-2 space-y-2">
+              {customRuleLines.map((line, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <input
+                    type="text"
+                    value={line}
+                    onChange={(e) =>
+                      setCustomRuleLines((prev) => prev.map((x, j) => (j === i ? e.target.value : x)))
+                    }
+                    className={inputCls}
+                    placeholder={i === 0 ? "Custom rule (optional)…" : `Additional rule ${i + 1}…`}
+                  />
+                  {customRuleLines.length > 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => setCustomRuleLines((prev) => prev.filter((_, j) => j !== i))}
+                      className="shrink-0 px-2 py-2.5 border-2 border-black bg-white text-[10px] font-black hover:bg-[#FF1E56]/20"
+                      aria-label="Remove rule line"
+                    >
+                      X
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+              {customRuleLines.length < 12 ? (
+                <button
+                  type="button"
+                  onClick={() => setCustomRuleLines((prev) => [...prev, ""])}
+                  className="w-full py-2 border-2 border-dashed border-black text-xs font-black text-black hover:bg-[#FFE600]/30"
+                >
+                  + ADD ANOTHER CUSTOM RULE
+                </button>
+              ) : null}
             </div>
           </div>
 

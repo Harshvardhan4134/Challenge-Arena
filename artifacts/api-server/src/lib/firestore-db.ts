@@ -52,7 +52,10 @@ export type ChallengeDoc = {
   mode: "1v1" | "2v2" | "4v4";
   scheduledAt: string;
   rules: string[];
+  /** @deprecated Use customRules; kept for older clients (first line). */
   customRule: string | null;
+  /** Free-text custom rules (full list); if empty, fall back to customRule. */
+  customRules?: string[];
   status: ChallengeStatus;
   teamAId: string;
   teamBId: string | null;
@@ -94,6 +97,16 @@ export type MessageDoc = {
   createdAt: string;
 };
 
+export type PlayerReportDoc = {
+  id: string;
+  challengeId: string;
+  reporterId: string;
+  reportedUserId: string;
+  category: "cheating" | "harassment" | "fake_result" | "no_show" | "other";
+  details: string | null;
+  createdAt: string;
+};
+
 export type NotificationDoc = {
   id: string;
   userId: string;
@@ -115,6 +128,7 @@ export const collections = {
   messages: firestore.collection("messages"),
   notifications: firestore.collection("notifications"),
   pushSubscriptions: firestore.collection("pushSubscriptions"),
+  playerReports: firestore.collection("playerReports"),
 };
 
 export function nowIso(): string {

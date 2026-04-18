@@ -12,6 +12,9 @@ export interface CreateChallengeBody {
   mode: CreateChallengeBodyMode;
   scheduledAt: Date;
   rules: string[];
+  /** Optional single custom rule (legacy); prefer customRules for multiple */
   customRule?: string | null;
+  /** Multiple free-text custom rules (max 12,200 chars each) */
+  customRules?: string[];
   teamName: string;
 }

@@ -3,11 +3,13 @@ import { useLocation, useRoute, useSearch } from "wouter";
 import {
   useGetChallenge, useGetChallengeMessages, useSendMessage, useJoinChallenge,
   useLeaveChallenge, useSubmitResult, useShareRoomDetails, useGetMe,
+  useReportChallengePlayer, useRematchChallenge,
   getGetChallengeQueryKey, getGetChallengeMessagesQueryKey,
 } from "@workspace/api-client-react";
+import type { ReportPlayerBody } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
-import { ArrowLeft, Send, Shield, Trophy, Key, Lock, MessageSquare, Users, Clock, Copy, Check, Link2, Upload, X } from "lucide-react";
+import { ArrowLeft, Send, Shield, Trophy, Key, Lock, MessageSquare, Users, Clock, Copy, Check, Link2, Upload, X, Flag, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatChallengeRuleId } from "@/lib/challenge-rules";
 import { apiUrl } from "@/lib/api-url";
@@ -15,6 +17,16 @@ import { getAuthToken } from "@/lib/auth";
 
 /** Max file size for match proof before upload to Firebase Storage (via API). */
 const RESULT_PROOF_MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+const POST_MATCH_STATUSES = ["completed", "disputed", "cancelled"] as const;
+
+const REPORT_OPTIONS: { value: ReportPlayerBody["category"]; label: string }[] = [
+  { value: "cheating", label: "Cheating / unfair play" },
+  { value: "harassment", label: "Harassment or toxic behavior" },
+  { value: "fake_result", label: "Fake or wrong result" },
+  { value: "no_show", label: "No-show / abandoned match" },
+  { value: "other", label: "Other (describe below)" },
+];
 
 function useCountdown(target: string) {
   const [label, setLabel] = useState("");
@@ -87,6 +99,13 @@ export default function ChallengeDetail() {
   const [joinTeamName, setJoinTeamName] = useState("");
   const [showJoinBForm, setShowJoinBForm] = useState(false);
 
+  const [reportTargetId, setReportTargetId] = useState("");
+  const [reportCategory, setReportCategory] = useState<ReportPlayerBody["category"]>("cheating");
+  const [reportDetails, setReportDetails] = useState("");
+  const [rematchAt, setRematchAt] = useState("");
+  const [rematchTeamName, setRematchTeamName] = useState("");
+  const [postMatchNotice, setPostMatchNotice] = useState("");
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getGetChallengeQueryKey(challengeId) });
     qc.invalidateQueries({ queryKey: getGetChallengeMessagesQueryKey(challengeId) });
@@ -107,9 +126,37 @@ export default function ChallengeDetail() {
   });
   const shareRoom = useShareRoomDetails({ mutation: { onSuccess: invalidate, onError: (e: any) => setError(e?.data?.message || "Failed to share room") } });
   const sendMsg = useSendMessage({ mutation: { onSuccess: () => { setMsgText(""); invalidate(); } } });
+  const reportPlayer = useReportChallengePlayer({
+    mutation: {
+      onSuccess: () => {
+        setReportDetails("");
+        setPostMatchNotice("Report submitted. Moderators can review it in admin tools.");
+        setError("");
+      },
+      onError: (e: any) => setError(e?.data?.message || "Could not submit report"),
+    },
+  });
+  const rematchMut = useRematchChallenge({
+    mutation: {
+      onSuccess: (data) => {
+        setPostMatchNotice("");
+        navigate(`/challenges/${data.id}`);
+      },
+      onError: (e: any) => setError(e?.data?.message || "Could not create rematch"),
+    },
+  });
 
   useEffect(() => {
     inviteHandledRef.current = null;
+  }, [challengeId]);
+
+  useEffect(() => {
+    setReportTargetId("");
+    setReportDetails("");
+    setReportCategory("cheating");
+    setRematchAt("");
+    setRematchTeamName("");
+    setPostMatchNotice("");
   }, [challengeId]);
 
   useEffect(() => {
@@ -171,6 +218,16 @@ export default function ChallengeDetail() {
   const inTeamB = c.teamB?.players.some(p => p.userId === userId);
   const inPendingTeamB = pendingTeamB?.players?.some((p) => p.userId === userId) ?? false;
   const inChallenge = inTeamA || inTeamB;
+  const isPostMatch = POST_MATCH_STATUSES.includes(c.status as (typeof POST_MATCH_STATUSES)[number]);
+  const canPostMatchActions = inChallenge && !!c.teamB && isPostMatch;
+  const opponentPlayers = inTeamA ? (c.teamB?.players ?? []) : (c.teamA?.players ?? []);
+  const reportTargetValue = reportTargetId || opponentPlayers[0]?.userId || "";
+  const customRulesList =
+    c.customRules && c.customRules.length > 0
+      ? c.customRules
+      : c.customRule
+        ? [c.customRule]
+        : [];
   const isPendingChallengerLeader = Boolean(pendingTeamB?.leaderId && pendingTeamB.leaderId === userId);
   const canAcceptPendingChallenger = isTeamALeader && !c.teamB && !!pendingTeamB;
   const hasMatchStarted = Date.now() >= new Date(c.scheduledAt).getTime();
@@ -326,8 +383,18 @@ export default function ChallengeDetail() {
               ))}
             </div>
           )}
-          {c.customRule && (
-            <div className="mt-2 text-xs font-mono text-gray-700 border-l-4 border-[#FF6B00] pl-2">Custom: {c.customRule}</div>
+          {customRulesList.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="text-[9px] font-black font-mono text-gray-500 uppercase">Custom rules</div>
+              {customRulesList.map((rule, i) => (
+                <div
+                  key={`${i}-${rule.slice(0, 24)}`}
+                  className="text-xs font-mono text-gray-700 border-l-4 border-[#FF6B00] pl-2"
+                >
+                  {rule}
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
@@ -657,6 +724,138 @@ export default function ChallengeDetail() {
           <div className="card-brutal-sm bg-white p-3 flex items-center gap-2">
             <Trophy className="w-4 h-4 text-gray-400 shrink-0" />
             <span className="text-xs font-black text-gray-600">RESULT IS SUBMITTED BY THE CHALLENGE CREATOR</span>
+          </div>
+        )}
+
+        {canPostMatchActions && (
+          <div className="card-brutal bg-white p-4 border-2 border-black space-y-4">
+            <div className="flex items-center gap-2 border-b-2 border-black pb-2">
+              <Flag className="w-4 h-4 text-[#FF6B00]" />
+              <span className="text-[10px] font-black font-mono uppercase tracking-widest">After the match</span>
+            </div>
+            {postMatchNotice ? (
+              <div className="text-xs font-bold text-[#00854B] border-2 border-[#00854B] px-3 py-2 bg-[#00854B]/10">
+                {postMatchNotice}
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <div className="text-[10px] font-black font-mono text-black">Report an opponent</div>
+              <p className="text-[9px] font-mono text-gray-600 leading-snug">
+                Reports are sent to admins. Use &quot;Other&quot; for anything that does not fit the list and add details.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-[9px] font-black font-mono text-gray-500">Player</span>
+                  <select
+                    value={reportTargetValue}
+                    onChange={(e) => setReportTargetId(e.target.value)}
+                    className={inputCls + " mt-0.5"}
+                  >
+                    {opponentPlayers.map((p) => (
+                      <option key={p.userId} value={p.userId}>
+                        {p.ign || p.username || p.userId}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[9px] font-black font-mono text-gray-500">Category</span>
+                  <select
+                    value={reportCategory}
+                    onChange={(e) => setReportCategory(e.target.value as ReportPlayerBody["category"])}
+                    className={inputCls + " mt-0.5"}
+                  >
+                    {REPORT_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="block">
+                <span className="text-[9px] font-black font-mono text-gray-500">
+                  Details {reportCategory === "other" ? "(required)" : "(optional)"}
+                </span>
+                <textarea
+                  value={reportDetails}
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  rows={3}
+                  className={inputCls + " mt-0.5 resize-y min-h-[72px]"}
+                  placeholder={
+                    reportCategory === "other"
+                      ? "Describe what happened (required for Other)…"
+                      : "Extra context for moderators…"
+                  }
+                />
+              </label>
+              <button
+                type="button"
+                disabled={reportPlayer.isPending || !reportTargetValue}
+                onClick={() => {
+                  if (!reportTargetValue) return setError("Choose a player to report.");
+                  if (reportCategory === "other" && reportDetails.trim().length < 4) {
+                    return setError('Add at least 4 characters for category "Other".');
+                  }
+                  setError("");
+                  setPostMatchNotice("");
+                  reportPlayer.mutate({
+                    challengeId,
+                    data: {
+                      reportedUserId: reportTargetValue,
+                      category: reportCategory,
+                      details: reportDetails.trim() ? reportDetails.trim() : null,
+                    },
+                  });
+                }}
+                className="btn-brutal w-full py-2.5 text-xs bg-black text-[#FFE600] disabled:opacity-50"
+              >
+                {reportPlayer.isPending ? "SENDING…" : "SUBMIT REPORT"}
+              </button>
+            </div>
+
+            <div className="border-t-2 border-dashed border-gray-200 pt-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <RefreshCw className="w-4 h-4 text-[#FF6B00]" />
+                <span className="text-[10px] font-black font-mono text-black">Rematch</span>
+              </div>
+              <p className="text-[9px] font-mono text-gray-600 leading-snug">
+                Opens a new challenge with the same mode and rules; you become the host (Team A). Pick a new time — your previous team name is used unless you change it.
+              </p>
+              <input
+                type="datetime-local"
+                value={rematchAt}
+                onChange={(e) => setRematchAt(e.target.value)}
+                min={new Date().toISOString().slice(0, 16)}
+                className={inputCls}
+              />
+              <input
+                type="text"
+                value={rematchTeamName}
+                onChange={(e) => setRematchTeamName(e.target.value)}
+                className={inputCls}
+                placeholder="Your team name (optional)"
+              />
+              <button
+                type="button"
+                disabled={rematchMut.isPending || !rematchAt}
+                onClick={() => {
+                  if (!rematchAt) return setError("Pick a date and time for the rematch.");
+                  setError("");
+                  rematchMut.mutate({
+                    challengeId,
+                    data: {
+                      scheduledAt: new Date(rematchAt).toISOString(),
+                      teamName: rematchTeamName.trim() ? rematchTeamName.trim() : null,
+                    },
+                  });
+                }}
+                className="btn-brutal w-full py-2.5 text-sm bg-[#FF6B00] text-white disabled:opacity-50"
+              >
+                {rematchMut.isPending ? "CREATING…" : "CREATE REMATCH CHALLENGE"}
+              </button>
+            </div>
           </div>
         )}
 

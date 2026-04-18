@@ -9,6 +9,7 @@ import {
   type ChallengeDoc,
   type MatchResultDoc,
   type NotificationDoc,
+  type PlayerReportDoc,
   type PlayerStatsDoc,
   type PushSubscriptionDoc,
   type UserDoc,
@@ -210,6 +211,13 @@ router.get("/match-results", async (_req, res) => {
   });
   rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return res.status(200).json(rows.slice(0, 300));
+});
+
+router.get("/player-reports", async (_req, res) => {
+  const snap = await collections.playerReports.get();
+  const rows = snap.docs.map((d) => d.data() as PlayerReportDoc);
+  rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return res.status(200).json(rows.slice(0, 500));
 });
 
 router.get("/push-subscriptions", async (_req, res) => {

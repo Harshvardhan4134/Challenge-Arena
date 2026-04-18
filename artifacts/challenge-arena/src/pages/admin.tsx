@@ -9,6 +9,7 @@ import {
   useGetAdminNotifications,
   useGetAdminMatchResults,
   useGetAdminPushSubscriptions,
+  useGetAdminPlayerReports,
   useAdminBanUser,
   useAdminUnbanUser,
   useAdminDeleteUser,
@@ -17,7 +18,7 @@ import {
 import Layout from "@/components/Layout";
 import { cn } from "@/lib/utils";
 
-type Tab = "overview" | "users" | "challenges" | "notifications" | "results" | "push";
+type Tab = "overview" | "users" | "challenges" | "notifications" | "results" | "reports" | "push";
 
 function isActiveBan(u: Pick<User, "bannedUntil">): boolean {
   if (!u.bannedUntil) return false;
@@ -71,6 +72,9 @@ export default function AdminPage() {
   const pushSubs = useGetAdminPushSubscriptions({
     query: { queryKey: ["adminPushSubscriptions"], enabled: isAdmin },
   });
+  const playerReports = useGetAdminPlayerReports({
+    query: { queryKey: ["adminPlayerReports"], enabled: isAdmin },
+  });
 
   const [tab, setTab] = useState<Tab>("overview");
 
@@ -119,11 +123,18 @@ export default function AdminPage() {
     { id: "challenges", label: "MATCHES" },
     { id: "notifications", label: "ALERTS" },
     { id: "results", label: "RESULTS" },
+    { id: "reports", label: "REPORTS" },
     { id: "push", label: "PUSH" },
   ];
 
   const err =
-    overview.error || users.error || challenges.error || notifications.error || matchResults.error || pushSubs.error;
+    overview.error ||
+    users.error ||
+    challenges.error ||
+    notifications.error ||
+    matchResults.error ||
+    playerReports.error ||
+    pushSubs.error;
 
   return (
     <Layout>
@@ -400,6 +411,41 @@ export default function AdminPage() {
                       <td className="p-2 max-w-[100px] truncate">{r.submittedBy}</td>
                       <td className="p-2 max-w-[80px] truncate">{r.screenshotUrl ? "yes" : "—"}</td>
                       <td className="p-2 whitespace-nowrap">{new Date(r.createdAt).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {tab === "reports" && (
+          <div className="overflow-x-auto border-2 border-black bg-white max-h-[70vh] overflow-y-auto">
+            {playerReports.isLoading && <p className="p-3 text-xs">Loading…</p>}
+            {playerReports.data && (
+              <table className="w-full text-left text-[10px] font-mono">
+                <thead className="bg-black text-[#FFE600] sticky top-0">
+                  <tr>
+                    {["created", "challengeId", "category", "reporter", "reported", "details"].map((h) => (
+                      <th key={h} className="p-2 font-black border-r border-[#FFE600]/30">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {playerReports.data.map((r) => (
+                    <tr key={r.id} className="border-t border-gray-200 align-top">
+                      <td className="p-2 whitespace-nowrap">{new Date(r.createdAt).toLocaleString()}</td>
+                      <td className="p-2 max-w-[100px] truncate">{r.challengeId}</td>
+                      <td className="p-2 whitespace-nowrap">{r.category}</td>
+                      <td className="p-2 max-w-[100px] truncate" title={r.reporterId}>
+                        {r.reporterId}
+                      </td>
+                      <td className="p-2 max-w-[100px] truncate" title={r.reportedUserId}>
+                        {r.reportedUserId}
+                      </td>
+                      <td className="p-2 max-w-[280px] whitespace-pre-wrap break-words">{r.details ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>

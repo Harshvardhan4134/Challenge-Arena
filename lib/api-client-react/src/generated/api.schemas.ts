@@ -143,7 +143,10 @@ export interface Challenge {
   mode: ChallengeMode;
   scheduledAt: string;
   rules: string[];
+  /** First custom line (legacy); use customRules for full list */
   customRule?: string | null;
+  /** All free-text custom rules for this match */
+  customRules?: string[];
   status: ChallengeStatus;
   teamA: Team;
   teamB?: Team | null;
@@ -168,8 +171,45 @@ export interface CreateChallengeBody {
   mode: CreateChallengeBodyMode;
   scheduledAt: string;
   rules: string[];
+  /** Optional single custom rule (legacy); prefer customRules for multiple */
   customRule?: string | null;
+  /** Multiple free-text custom rules (max 12,200 chars each) */
+  customRules?: string[];
   teamName: string;
+}
+
+export type ReportPlayerBodyCategory =
+  (typeof ReportPlayerBodyCategory)[keyof typeof ReportPlayerBodyCategory];
+
+export const ReportPlayerBodyCategory = {
+  cheating: "cheating",
+  harassment: "harassment",
+  fake_result: "fake_result",
+  no_show: "no_show",
+  other: "other",
+} as const;
+
+export interface ReportPlayerBody {
+  reportedUserId: string;
+  category: ReportPlayerBodyCategory;
+  /** Extra context (required nuance for category "other") */
+  details?: string | null;
+}
+
+export interface RematchChallengeBody {
+  scheduledAt: string;
+  /** Your new host team name; defaults to your team from the previous match */
+  teamName?: string | null;
+}
+
+export interface PlayerReport {
+  id: string;
+  challengeId: string;
+  reporterId: string;
+  reportedUserId: string;
+  category: string;
+  details?: string | null;
+  createdAt: string;
 }
 
 export type JoinChallengeBodySide =

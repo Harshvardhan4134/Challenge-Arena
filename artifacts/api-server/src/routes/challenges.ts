@@ -5,6 +5,8 @@ import {
   JoinChallengeBody,
   SubmitResultBody,
   ShareRoomDetailsBody,
+  ReportChallengePlayerBody,
+  RematchChallengeBody,
 } from "@workspace/api-zod";
 import { requireAuth, AuthRequest } from "../middleware/auth";
 import {
@@ -16,6 +18,7 @@ import {
   type TeamDoc,
   type TeamMemberDoc,
   type UserDoc,
+  type PlayerReportDoc,
 } from "../lib/firestore-db";
 import { notifyUser } from "../lib/notify-user";
 import { uploadMatchResultProofImage } from "../lib/match-result-proof-storage";
@@ -41,10 +44,118 @@ const RULE_ALLOWLIST = new Set([
 ]);
 const CHALLENGE_TTL_MS = 2 * 60 * 60 * 1000;
 const RESULT_TIMEOUT_MS = 20 * 60 * 1000;
+const MAX_CUSTOM_RULE_LINES = 12;
+const MAX_CUSTOM_RULE_LINE_LEN = 200;
+const REPORT_DETAIL_MAX = 2000;
+const POST_MATCH_ACTION_STATUSES: ChallengeDoc["status"][] = ["completed", "disputed", "cancelled"];
+
+function mergeCustomRulesForCreate(
+  legacy: string | null | undefined,
+  lines: string[] | undefined,
+):
+  | { ok: true; value: string[] }
+  | { ok: false; message: string } {
+  const merged: string[] = [];
+  if (legacy?.trim()) merged.push(legacy.trim());
+  for (const line of lines ?? []) {
+    const t = String(line).trim();
+    if (t) merged.push(t);
+  }
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of merged) {
+    if (line.length > MAX_CUSTOM_RULE_LINE_LEN) {
+      return { ok: false, message: "Each custom rule must be 200 characters or less" };
+    }
+    if (seen.has(line)) continue;
+    seen.add(line);
+    out.push(line);
+    if (out.length > MAX_CUSTOM_RULE_LINES) {
+      return { ok: false, message: "At most 12 custom rules" };
+    }
+  }
+  return { ok: true, value: out };
+}
+
+function resolvedCustomRulesFromDoc(challenge: ChallengeDoc): string[] {
+  const arr = challenge.customRules?.filter((s) => typeof s === "string" && s.trim());
+  if (arr && arr.length > 0) return arr.map((s) => s.trim());
+  return challenge.customRule?.trim() ? [challenge.customRule.trim()] : [];
+}
+
+function validateChallengeSchedule(parsedScheduledAt: Date): string | null {
+  if (Number.isNaN(parsedScheduledAt.getTime())) return "Invalid scheduledAt date";
+  const minLeadMs = 2 * 60 * 1000;
+  const maxFutureMs = 14 * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  const scheduleDelta = parsedScheduledAt.getTime() - now;
+  if (scheduleDelta < minLeadMs || scheduleDelta > maxFutureMs) {
+    return "Challenge time must be 2 minutes to 14 days from now";
+  }
+  return null;
+}
+
+async function persistNewHostChallenge(
+  userId: string,
+  params: {
+    title: string;
+    mode: "1v1" | "2v2" | "4v4";
+    scheduledAt: Date;
+    normalizedRules: string[];
+    customLines: string[];
+    teamName: string;
+  },
+): Promise<ChallengeDoc> {
+  const teamId = crypto.randomUUID();
+  const team: TeamDoc = { id: teamId, name: params.teamName, leaderId: userId, createdAt: nowIso() };
+  await collections.teams.doc(teamId).set(team);
+  const memberId = crypto.randomUUID();
+  await collections.teamMembers.doc(memberId).set({
+    id: memberId,
+    teamId,
+    userId,
+    isLeader: true,
+    joinedAt: nowIso(),
+  } satisfies TeamMemberDoc);
+
+  const challengeId = crypto.randomUUID();
+  const customLines = params.customLines;
+  const challenge: ChallengeDoc = {
+    id: challengeId,
+    title: params.title,
+    mode: params.mode,
+    scheduledAt: params.scheduledAt.toISOString(),
+    rules: params.normalizedRules,
+    customRule: customLines[0] ?? null,
+    customRules: customLines.length ? customLines : [],
+    teamAId: teamId,
+    creatorId: userId,
+    status: "open",
+    teamBId: null,
+    roomId: null,
+    roomPassword: null,
+    winnerId: null,
+    createdAt: nowIso(),
+    matchReminder15mSent: false,
+  };
+  await collections.challenges.doc(challengeId).set(challenge);
+  return challenge;
+}
 
 async function getTeamMembers(teamId: string): Promise<TeamMemberDoc[]> {
   const snap = await collections.teamMembers.where("teamId", "==", teamId).get();
   return snap.docs.map((d) => d.data() as TeamMemberDoc);
+}
+
+async function defaultTeamNameForRematch(challenge: ChallengeDoc, userId: string): Promise<string> {
+  for (const tid of [challenge.teamAId, challenge.teamBId].filter(Boolean) as string[]) {
+    const ms = await getTeamMembers(tid);
+    if (ms.some((m) => m.userId === userId)) {
+      const tdoc = await collections.teams.doc(tid).get();
+      if (tdoc.exists) return (tdoc.data() as TeamDoc).name;
+    }
+  }
+  return "Rematch squad";
 }
 
 async function getUser(userId: string): Promise<UserDoc | null> {
@@ -109,6 +220,7 @@ export async function buildChallengeResponse(challenge: ChallengeDoc) {
     scheduledAt: challenge.scheduledAt,
     rules: challenge.rules || [],
     customRule: challenge.customRule,
+    customRules: resolvedCustomRulesFromDoc(challenge),
     status: challenge.status,
     teamA: teamA ? { id: teamA.id, name: teamA.name, leaderId: teamA.leaderId, players: teamAMembersWithUsernames, maxSize } : null,
     teamB: teamBData,
@@ -169,64 +281,37 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   const parsed = CreateChallengeBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
 
-  const { title, mode, scheduledAt, rules, customRule, teamName } = parsed.data;
+  const { title, mode, scheduledAt, rules, customRule, customRules, teamName } = parsed.data;
   const userId = req.userId!;
   const parsedScheduledAt = new Date(scheduledAt);
-  if (Number.isNaN(parsedScheduledAt.getTime())) {
-    return res.status(400).json({ error: "validation", message: "Invalid scheduledAt date" });
-  }
-  const minLeadMs = 2 * 60 * 1000;
-  const maxFutureMs = 14 * 24 * 60 * 60 * 1000;
-  const now = Date.now();
-  const scheduleDelta = parsedScheduledAt.getTime() - now;
-  if (scheduleDelta < minLeadMs || scheduleDelta > maxFutureMs) {
-    return res.status(400).json({ error: "validation", message: "Challenge time must be 2 minutes to 14 days from now" });
+  const scheduleErr = validateChallengeSchedule(parsedScheduledAt);
+  if (scheduleErr) {
+    return res.status(400).json({ error: "validation", message: scheduleErr });
   }
   const normalizedRules = (rules || []).filter((r) => RULE_ALLOWLIST.has(r));
   if ((rules || []).length !== normalizedRules.length) {
     return res.status(400).json({ error: "validation", message: "One or more rules are invalid" });
   }
-  if ((customRule ?? "").trim().length > 280) {
-    return res.status(400).json({ error: "validation", message: "Custom rule must be 280 characters or less" });
+  const mergedCustom = mergeCustomRulesForCreate(customRule, customRules);
+  if (!mergedCustom.ok) {
+    return res.status(400).json({ error: "validation", message: mergedCustom.message });
   }
 
-  const teamId = crypto.randomUUID();
-  const team: TeamDoc = { id: teamId, name: teamName, leaderId: userId, createdAt: nowIso() };
-  await collections.teams.doc(teamId).set(team);
-  const memberId = crypto.randomUUID();
-  await collections.teamMembers.doc(memberId).set({
-    id: memberId,
-    teamId,
-    userId,
-    isLeader: true,
-    joinedAt: nowIso(),
-  } satisfies TeamMemberDoc);
-
-  const challengeId = crypto.randomUUID();
-  const challenge: ChallengeDoc = {
-    id: challengeId,
+  const challenge = await persistNewHostChallenge(userId, {
     title,
     mode: mode as "1v1" | "2v2" | "4v4",
-    scheduledAt: parsedScheduledAt.toISOString(),
-    rules: normalizedRules,
-    customRule: customRule?.trim() ? customRule.trim() : null,
-    teamAId: teamId,
-    creatorId: userId,
-    status: "open",
-    teamBId: null,
-    roomId: null,
-    roomPassword: null,
-    winnerId: null,
-    createdAt: nowIso(),
-    matchReminder15mSent: false,
-  };
-  await collections.challenges.doc(challengeId).set(challenge);
+    scheduledAt: parsedScheduledAt,
+    normalizedRules,
+    customLines: mergedCustom.value,
+    teamName,
+  });
 
   return res.status(201).json(await buildChallengeResponse(challenge));
 });
 
 router.get("/:challengeId", async (req, res) => {
-  const { challengeId } = req.params;
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
   const challengeDoc = await collections.challenges.doc(challengeId).get();
   if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
   const challenge = challengeDoc.data() as ChallengeDoc;
@@ -234,7 +319,8 @@ router.get("/:challengeId", async (req, res) => {
 });
 
 router.delete("/:challengeId", requireAuth, async (req: AuthRequest, res) => {
-  const { challengeId } = req.params;
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
   const challengeDoc = await collections.challenges.doc(challengeId).get();
   if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
   const challenge = challengeDoc.data() as ChallengeDoc;
@@ -245,7 +331,8 @@ router.delete("/:challengeId", requireAuth, async (req: AuthRequest, res) => {
 });
 
 router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => {
-  const { challengeId } = req.params;
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
   const parsed = JoinChallengeBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
 
@@ -300,12 +387,16 @@ router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => 
     } else if (challenge.pendingTeamBId && !challenge.teamBId) {
       return res.status(400).json({ error: "pending", message: "Challenge request already pending approval" });
     } else {
-      const members = await getTeamMembers(challenge.teamBId);
+      const teamBIdJoin = challenge.teamBId;
+      if (!teamBIdJoin) {
+        return res.status(400).json({ error: "invalid_state", message: "Team B is not ready for joins" });
+      }
+      const members = await getTeamMembers(teamBIdJoin);
       if (members.length >= maxSize) return res.status(400).json({ error: "full", message: "Team B is full" });
       const alreadyIn = members.some(m => m.userId === userId);
       if (alreadyIn) return res.status(400).json({ error: "duplicate", message: "Already in team B" });
       const id = crypto.randomUUID();
-      await collections.teamMembers.doc(id).set({ id, teamId: challenge.teamBId, userId, isLeader: false, joinedAt: nowIso() } satisfies TeamMemberDoc);
+      await collections.teamMembers.doc(id).set({ id, teamId: teamBIdJoin, userId, isLeader: false, joinedAt: nowIso() } satisfies TeamMemberDoc);
     }
   }
 
@@ -337,7 +428,8 @@ router.post("/:challengeId/join", requireAuth, async (req: AuthRequest, res) => 
 });
 
 router.post("/:challengeId/leave", requireAuth, async (req: AuthRequest, res) => {
-  const { challengeId } = req.params;
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
   const userId = req.userId!;
 
   const challengeDoc = await collections.challenges.doc(challengeId).get();
@@ -527,7 +619,8 @@ router.post("/:challengeId/result", requireAuth, async (req: AuthRequest, res) =
 });
 
 router.post("/:challengeId/accept-challenger", requireAuth, async (req: AuthRequest, res) => {
-  const { challengeId } = req.params;
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
   const userId = req.userId!;
   const challengeDoc = await collections.challenges.doc(challengeId).get();
   if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
@@ -549,19 +642,23 @@ router.post("/:challengeId/accept-challenger", requireAuth, async (req: AuthRequ
   }
 
   const maxSize = MODE_SIZE[challenge.mode] || 1;
+  const pendingId = challenge.pendingTeamBId;
+  if (!pendingId) {
+    return res.status(400).json({ error: "invalid_state", message: "No pending challenge request" });
+  }
   const teamAMembers = await getTeamMembers(challenge.teamAId);
-  const teamBMembers = await getTeamMembers(challenge.pendingTeamBId);
+  const teamBMembers = await getTeamMembers(pendingId);
   const nextStatus: "open" | "full" = teamAMembers.length >= maxSize && teamBMembers.length >= maxSize ? "full" : "open";
 
   await collections.challenges.doc(challengeId).set({
-    teamBId: challenge.pendingTeamBId,
+    teamBId: pendingId,
     pendingTeamBId: null,
     pendingRequestedBy: null,
     pendingRequestedAt: null,
     status: nextStatus,
   }, { merge: true });
 
-  const pendingTeamDoc = await collections.teams.doc(challenge.pendingTeamBId).get();
+  const pendingTeamDoc = await collections.teams.doc(pendingId).get();
   const pendingTeam = pendingTeamDoc.exists ? (pendingTeamDoc.data() as TeamDoc) : null;
   if (pendingTeam?.leaderId) {
     await notifyUser(pendingTeam.leaderId, {
@@ -576,8 +673,132 @@ router.post("/:challengeId/accept-challenger", requireAuth, async (req: AuthRequ
   return res.status(200).json(await buildChallengeResponse(finalDoc.data() as ChallengeDoc));
 });
 
+router.post("/:challengeId/report", requireAuth, async (req: AuthRequest, res) => {
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
+
+  const parsed = ReportChallengePlayerBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
+
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
+
+  if (!POST_MATCH_ACTION_STATUSES.includes(challenge.status)) {
+    return res.status(400).json({ error: "invalid_state", message: "Reports are only allowed after the match has ended" });
+  }
+  if (!challenge.teamBId) {
+    return res.status(400).json({ error: "invalid_state", message: "This challenge had no opponent team" });
+  }
+
+  const reporterId = req.userId!;
+  const [membersA, membersB] = await Promise.all([
+    getTeamMembers(challenge.teamAId),
+    getTeamMembers(challenge.teamBId),
+  ]);
+  const aIds = new Set(membersA.map((m) => m.userId));
+  const bIds = new Set(membersB.map((m) => m.userId));
+  if (!aIds.has(reporterId) && !bIds.has(reporterId)) {
+    return res.status(403).json({ error: "forbidden", message: "Only match participants can file a report" });
+  }
+
+  const { reportedUserId, category, details } = parsed.data;
+  if (reportedUserId === reporterId) {
+    return res.status(400).json({ error: "validation", message: "You cannot report yourself" });
+  }
+  if (!aIds.has(reportedUserId) && !bIds.has(reportedUserId)) {
+    return res.status(400).json({ error: "validation", message: "Reported user was not in this match" });
+  }
+  const reporterOnA = aIds.has(reporterId);
+  const reportedOnA = aIds.has(reportedUserId);
+  if (reporterOnA === reportedOnA) {
+    return res.status(400).json({ error: "validation", message: "You can only report players on the opposing team" });
+  }
+
+  const detailsTrim = (details ?? "").trim();
+  if (category === "other" && detailsTrim.length < 4) {
+    return res.status(400).json({
+      error: "validation",
+      message: 'Please add details for the "Other" category (at least 4 characters)',
+    });
+  }
+  if (detailsTrim.length > REPORT_DETAIL_MAX) {
+    return res.status(400).json({ error: "validation", message: `Details must be ${REPORT_DETAIL_MAX} characters or less` });
+  }
+
+  const report: PlayerReportDoc = {
+    id: crypto.randomUUID(),
+    challengeId,
+    reporterId,
+    reportedUserId,
+    category,
+    details: detailsTrim ? detailsTrim : null,
+    createdAt: nowIso(),
+  };
+  await collections.playerReports.doc(report.id).set(report);
+  return res.status(201).json(report);
+});
+
+router.post("/:challengeId/rematch", requireAuth, async (req: AuthRequest, res) => {
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
+
+  const parsed = RematchChallengeBody.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
+
+  const challengeDoc = await collections.challenges.doc(challengeId).get();
+  if (!challengeDoc.exists) return res.status(404).json({ error: "not_found", message: "Challenge not found" });
+  const challenge = challengeDoc.data() as ChallengeDoc;
+
+  if (!POST_MATCH_ACTION_STATUSES.includes(challenge.status)) {
+    return res.status(400).json({ error: "invalid_state", message: "Rematch is only available after the match has finished" });
+  }
+  if (!challenge.teamBId) {
+    return res.status(400).json({ error: "invalid_state", message: "This challenge had no opponent team" });
+  }
+
+  const userId = req.userId!;
+  const [membersA, membersB] = await Promise.all([
+    getTeamMembers(challenge.teamAId),
+    getTeamMembers(challenge.teamBId),
+  ]);
+  const participantIds = new Set([...membersA, ...membersB].map((m) => m.userId));
+  if (!participantIds.has(userId)) {
+    return res.status(403).json({ error: "forbidden", message: "Only match participants can start a rematch" });
+  }
+
+  const scheduledRaw = parsed.data.scheduledAt;
+  const parsedScheduledAt = scheduledRaw instanceof Date ? scheduledRaw : new Date(scheduledRaw as string);
+  const scheduleErr = validateChallengeSchedule(parsedScheduledAt);
+  if (scheduleErr) {
+    return res.status(400).json({ error: "validation", message: scheduleErr });
+  }
+
+  const normalizedRules = (challenge.rules || []).filter((r) => RULE_ALLOWLIST.has(r));
+  const customLines = resolvedCustomRulesFromDoc(challenge);
+  const teamName =
+    (typeof parsed.data.teamName === "string" && parsed.data.teamName.trim())
+      ? parsed.data.teamName.trim()
+      : await defaultTeamNameForRematch(challenge, userId);
+
+  const baseTitle = challenge.title.replace(/\s*\(Rematch\)\s*$/i, "").trim() || "Match";
+  const rematchTitle = `${baseTitle} (Rematch)`;
+
+  const newChallenge = await persistNewHostChallenge(userId, {
+    title: rematchTitle,
+    mode: challenge.mode,
+    scheduledAt: parsedScheduledAt,
+    normalizedRules,
+    customLines,
+    teamName,
+  });
+
+  return res.status(201).json(await buildChallengeResponse(newChallenge));
+});
+
 router.post("/:challengeId/room", requireAuth, async (req: AuthRequest, res) => {
-  const { challengeId } = req.params;
+  const challengeId = challengeIdFromReq(req);
+  if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
   const parsed = ShareRoomDetailsBody.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "validation", message: parsed.error.message });
 

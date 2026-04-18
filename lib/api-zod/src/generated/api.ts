@@ -217,7 +217,14 @@ export const ListChallengesResponseItem = zod.object({
   mode: zod.enum(["1v1", "2v2", "4v4"]),
   scheduledAt: zod.coerce.date(),
   rules: zod.array(zod.string()),
-  customRule: zod.string().nullish(),
+  customRule: zod
+    .string()
+    .nullish()
+    .describe("First custom line (legacy); use customRules for full list"),
+  customRules: zod
+    .array(zod.string())
+    .optional()
+    .describe("All free-text custom rules for this match"),
   status: zod.enum([
     "open",
     "full",
@@ -274,7 +281,16 @@ export const CreateChallengeBody = zod.object({
   mode: zod.enum(["1v1", "2v2", "4v4"]),
   scheduledAt: zod.coerce.date(),
   rules: zod.array(zod.string()),
-  customRule: zod.string().nullish(),
+  customRule: zod
+    .string()
+    .nullish()
+    .describe(
+      "Optional single custom rule (legacy); prefer customRules for multiple",
+    ),
+  customRules: zod
+    .array(zod.string())
+    .optional()
+    .describe("Multiple free-text custom rules (max 12,200 chars each)"),
   teamName: zod.string(),
 });
 
@@ -291,7 +307,14 @@ export const GetChallengeResponse = zod.object({
   mode: zod.enum(["1v1", "2v2", "4v4"]),
   scheduledAt: zod.coerce.date(),
   rules: zod.array(zod.string()),
-  customRule: zod.string().nullish(),
+  customRule: zod
+    .string()
+    .nullish()
+    .describe("First custom line (legacy); use customRules for full list"),
+  customRules: zod
+    .array(zod.string())
+    .optional()
+    .describe("All free-text custom rules for this match"),
   status: zod.enum([
     "open",
     "full",
@@ -372,7 +395,14 @@ export const JoinChallengeResponse = zod.object({
   mode: zod.enum(["1v1", "2v2", "4v4"]),
   scheduledAt: zod.coerce.date(),
   rules: zod.array(zod.string()),
-  customRule: zod.string().nullish(),
+  customRule: zod
+    .string()
+    .nullish()
+    .describe("First custom line (legacy); use customRules for full list"),
+  customRules: zod
+    .array(zod.string())
+    .optional()
+    .describe("All free-text custom rules for this match"),
   status: zod.enum([
     "open",
     "full",
@@ -430,6 +460,45 @@ export const LeaveChallengeParams = zod.object({
 export const LeaveChallengeResponse = zod.object({
   success: zod.boolean(),
   message: zod.string().optional(),
+});
+
+/**
+ * @summary Report another player after the match (completed, disputed, or cancelled)
+ */
+export const ReportChallengePlayerParams = zod.object({
+  challengeId: zod.coerce.string(),
+});
+
+export const ReportChallengePlayerBody = zod.object({
+  reportedUserId: zod.string(),
+  category: zod.enum([
+    "cheating",
+    "harassment",
+    "fake_result",
+    "no_show",
+    "other",
+  ]),
+  details: zod
+    .string()
+    .nullish()
+    .describe('Extra context (required nuance for category \"other\")'),
+});
+
+/**
+ * @summary Create a new open challenge from a finished match (same rules; you host Team A)
+ */
+export const RematchChallengeParams = zod.object({
+  challengeId: zod.coerce.string(),
+});
+
+export const RematchChallengeBody = zod.object({
+  scheduledAt: zod.coerce.date(),
+  teamName: zod
+    .string()
+    .nullish()
+    .describe(
+      "Your new host team name; defaults to your team from the previous match",
+    ),
 });
 
 /**
@@ -730,7 +799,14 @@ export const GetAdminChallengesResponseItem = zod.object({
   mode: zod.enum(["1v1", "2v2", "4v4"]),
   scheduledAt: zod.coerce.date(),
   rules: zod.array(zod.string()),
-  customRule: zod.string().nullish(),
+  customRule: zod
+    .string()
+    .nullish()
+    .describe("First custom line (legacy); use customRules for full list"),
+  customRules: zod
+    .array(zod.string())
+    .optional()
+    .describe("All free-text custom rules for this match"),
   status: zod.enum([
     "open",
     "full",
@@ -832,6 +908,22 @@ export const GetAdminPushSubscriptionsResponseItem = zod.object({
 });
 export const GetAdminPushSubscriptionsResponse = zod.array(
   GetAdminPushSubscriptionsResponseItem,
+);
+
+/**
+ * @summary User-submitted player reports (post-match)
+ */
+export const GetAdminPlayerReportsResponseItem = zod.object({
+  id: zod.string(),
+  challengeId: zod.string(),
+  reporterId: zod.string(),
+  reportedUserId: zod.string(),
+  category: zod.string(),
+  details: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const GetAdminPlayerReportsResponse = zod.array(
+  GetAdminPlayerReportsResponseItem,
 );
 
 /**

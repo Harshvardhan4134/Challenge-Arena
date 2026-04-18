@@ -32,9 +32,12 @@ import type {
   MatchResult,
   Message,
   Notification,
+  PlayerReport,
   PlayerStats,
   PushSubscription,
   RegisterBody,
+  RematchChallengeBody,
+  ReportPlayerBody,
   SendMessageBody,
   ShareRoomBody,
   StatsOverview,
@@ -1129,6 +1132,180 @@ export const useLeaveChallenge = <
   TContext
 > => {
   return useMutation(getLeaveChallengeMutationOptions(options));
+};
+
+/**
+ * @summary Report another player after the match (completed, disputed, or cancelled)
+ */
+export const getReportChallengePlayerUrl = (challengeId: string) => {
+  return `/api/challenges/${challengeId}/report`;
+};
+
+export const reportChallengePlayer = async (
+  challengeId: string,
+  reportPlayerBody: ReportPlayerBody,
+  options?: RequestInit,
+): Promise<PlayerReport> => {
+  return customFetch<PlayerReport>(getReportChallengePlayerUrl(challengeId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reportPlayerBody),
+  });
+};
+
+export const getReportChallengePlayerMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reportChallengePlayer>>,
+    TError,
+    { challengeId: string; data: BodyType<ReportPlayerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reportChallengePlayer>>,
+  TError,
+  { challengeId: string; data: BodyType<ReportPlayerBody> },
+  TContext
+> => {
+  const mutationKey = ["reportChallengePlayer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reportChallengePlayer>>,
+    { challengeId: string; data: BodyType<ReportPlayerBody> }
+  > = (props) => {
+    const { challengeId, data } = props ?? {};
+
+    return reportChallengePlayer(challengeId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReportChallengePlayerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reportChallengePlayer>>
+>;
+export type ReportChallengePlayerMutationBody = BodyType<ReportPlayerBody>;
+export type ReportChallengePlayerMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Report another player after the match (completed, disputed, or cancelled)
+ */
+export const useReportChallengePlayer = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reportChallengePlayer>>,
+    TError,
+    { challengeId: string; data: BodyType<ReportPlayerBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reportChallengePlayer>>,
+  TError,
+  { challengeId: string; data: BodyType<ReportPlayerBody> },
+  TContext
+> => {
+  return useMutation(getReportChallengePlayerMutationOptions(options));
+};
+
+/**
+ * @summary Create a new open challenge from a finished match (same rules; you host Team A)
+ */
+export const getRematchChallengeUrl = (challengeId: string) => {
+  return `/api/challenges/${challengeId}/rematch`;
+};
+
+export const rematchChallenge = async (
+  challengeId: string,
+  rematchChallengeBody: RematchChallengeBody,
+  options?: RequestInit,
+): Promise<Challenge> => {
+  return customFetch<Challenge>(getRematchChallengeUrl(challengeId), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(rematchChallengeBody),
+  });
+};
+
+export const getRematchChallengeMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rematchChallenge>>,
+    TError,
+    { challengeId: string; data: BodyType<RematchChallengeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof rematchChallenge>>,
+  TError,
+  { challengeId: string; data: BodyType<RematchChallengeBody> },
+  TContext
+> => {
+  const mutationKey = ["rematchChallenge"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof rematchChallenge>>,
+    { challengeId: string; data: BodyType<RematchChallengeBody> }
+  > = (props) => {
+    const { challengeId, data } = props ?? {};
+
+    return rematchChallenge(challengeId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RematchChallengeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rematchChallenge>>
+>;
+export type RematchChallengeMutationBody = BodyType<RematchChallengeBody>;
+export type RematchChallengeMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Create a new open challenge from a finished match (same rules; you host Team A)
+ */
+export const useRematchChallenge = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof rematchChallenge>>,
+    TError,
+    { challengeId: string; data: BodyType<RematchChallengeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof rematchChallenge>>,
+  TError,
+  { challengeId: string; data: BodyType<RematchChallengeBody> },
+  TContext
+> => {
+  return useMutation(getRematchChallengeMutationOptions(options));
 };
 
 /**
@@ -2498,6 +2675,81 @@ export function useGetAdminPushSubscriptions<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getGetAdminPushSubscriptionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary User-submitted player reports (post-match)
+ */
+export const getGetAdminPlayerReportsUrl = () => {
+  return `/api/admin/player-reports`;
+};
+
+export const getAdminPlayerReports = async (
+  options?: RequestInit,
+): Promise<PlayerReport[]> => {
+  return customFetch<PlayerReport[]>(getGetAdminPlayerReportsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminPlayerReportsQueryKey = () => {
+  return [`/api/admin/player-reports`] as const;
+};
+
+export const getGetAdminPlayerReportsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminPlayerReports>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminPlayerReports>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminPlayerReportsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminPlayerReports>>
+  > = ({ signal }) => getAdminPlayerReports({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminPlayerReports>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminPlayerReportsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminPlayerReports>>
+>;
+export type GetAdminPlayerReportsQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary User-submitted player reports (post-match)
+ */
+
+export function useGetAdminPlayerReports<
+  TData = Awaited<ReturnType<typeof getAdminPlayerReports>>,
+  TError = ErrorType<ErrorResponse>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminPlayerReports>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminPlayerReportsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

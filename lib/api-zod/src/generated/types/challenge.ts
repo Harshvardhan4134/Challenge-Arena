@@ -15,7 +15,10 @@ export interface Challenge {
   mode: ChallengeMode;
   scheduledAt: Date;
   rules: string[];
+  /** First custom line (legacy); use customRules for full list */
   customRule?: string | null;
+  /** All free-text custom rules for this match */
+  customRules?: string[];
   status: ChallengeStatus;
   teamA: Team;
   teamB?: Team | null;
