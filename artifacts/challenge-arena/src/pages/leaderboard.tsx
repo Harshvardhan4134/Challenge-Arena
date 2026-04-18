@@ -33,7 +33,9 @@ export default function Leaderboard() {
         ) : leaderboard.data?.length === 0 ? (
           <div className="card-brutal p-12 text-center">
             <Trophy className="w-10 h-10 mx-auto mb-3 text-gray-400" />
-            <p className="font-black text-sm text-gray-600">NO RANKINGS YET. PLAY SOME MATCHES!</p>
+            <p className="font-black text-sm text-gray-600">
+              NO RANKINGS YET. FINISH AT LEAST ONE MATCH (HOST SUBMITS RESULT) TO APPEAR HERE.
+            </p>
           </div>
         ) : (
           <motion.div

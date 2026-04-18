@@ -7,8 +7,16 @@ import { toSafeUser } from "../lib/user-view";
 
 const router = Router();
 
+function userIdFromReq(req: { params: Record<string, string | string[] | undefined> }): string | undefined {
+  const raw = req.params["userId"];
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw) && typeof raw[0] === "string") return raw[0];
+  return undefined;
+}
+
 router.get("/:userId", async (req, res) => {
-  const { userId } = req.params;
+  const userId = userIdFromReq(req);
+  if (!userId) return res.status(400).json({ error: "bad_request", message: "Missing user id" });
   const userDoc = await collections.users.doc(userId).get();
   if (!userDoc.exists) return res.status(404).json({ error: "not_found", message: "User not found" });
   const user = userDoc.data() as UserDoc;
@@ -19,7 +27,8 @@ router.get("/:userId", async (req, res) => {
 });
 
 router.put("/:userId/update", requireAuth, async (req: AuthRequest, res) => {
-  const { userId } = req.params;
+  const userId = userIdFromReq(req);
+  if (!userId) return res.status(400).json({ error: "bad_request", message: "Missing user id" });
   if (req.userId !== userId) return res.status(403).json({ error: "forbidden", message: "Cannot update another user" });
 
   const parsed = UpdateUserBody.safeParse(req.body);

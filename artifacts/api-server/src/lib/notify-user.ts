@@ -50,6 +50,13 @@ async function sendResendEmail(to: string, subject: string, html: string): Promi
   }
 }
 
+/** Twilio WhatsApp “bot” style: short header + link on its own line (works in sandbox + business API). */
+function formatWhatsAppBotMessage(title: string, message: string, link: string): string {
+  const t = title.trim();
+  const m = message.trim();
+  return `*Challenge Arena*\n_${t}_\n\n${m}\n\n${link}`;
+}
+
 async function sendTwilioWhatsApp(to: string, body: string): Promise<void> {
   const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const token = process.env.TWILIO_AUTH_TOKEN?.trim();
@@ -137,7 +144,10 @@ export async function notifyUser(
         )
       : Promise.resolve(),
     waRaw
-      ? sendTwilioWhatsApp(waRaw, `${payload.title}\n\n${payload.message}\n\n${link}`).catch((e) =>
+      ? sendTwilioWhatsApp(
+          waRaw,
+          formatWhatsAppBotMessage(payload.title, payload.message, link),
+        ).catch((e) =>
           logger.warn({ err: e, userId }, "notify whatsapp failed"),
         )
       : Promise.resolve(),

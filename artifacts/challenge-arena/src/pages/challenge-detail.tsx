@@ -266,6 +266,13 @@ export default function ChallengeDetail() {
   };
   const statusInfo = STATUS_STYLE[c.status] || { bg: "bg-gray-400 text-white", label: c.status.toUpperCase() };
 
+  const winnerTeamLabel =
+    c.status === "completed" && c.winnerId
+      ? c.winnerId === c.teamA?.id
+        ? c.teamA?.name ?? "Team A"
+        : c.teamB?.name ?? "Team B"
+      : null;
+
   const inputCls = "w-full px-3 py-2.5 bg-white border-2 border-black text-sm font-bold text-black focus:outline-none focus:border-[#FF6B00] transition-colors placeholder:font-normal placeholder:text-gray-400";
   const acceptPendingChallenger = async () => {
     setError("");
@@ -366,6 +373,30 @@ export default function ChallengeDetail() {
             {statusInfo.label}
           </span>
         </div>
+
+        {c.status === "completed" && winnerTeamLabel && (
+          <div className="card-brutal bg-[#00854B] text-white p-4 border-2 border-black">
+            <div className="text-[10px] font-black font-mono text-[#FFE600] uppercase tracking-widest mb-1">Match finished</div>
+            <div className="display-font text-2xl leading-tight">
+              Winner: {winnerTeamLabel}
+            </div>
+            <p className="text-xs font-mono mt-2 opacity-90">
+              Result is locked. You can report an issue or start a rematch below.
+            </p>
+          </div>
+        )}
+        {c.status === "cancelled" && (
+          <div className="card-brutal bg-gray-500 text-white p-4 border-2 border-black">
+            <div className="text-[10px] font-black font-mono uppercase tracking-widest mb-1">Cancelled</div>
+            <p className="text-sm font-bold">This match was not played or was voided.</p>
+          </div>
+        )}
+        {c.status === "disputed" && (
+          <div className="card-brutal bg-[#FF1E56] text-white p-4 border-2 border-black">
+            <div className="text-[10px] font-black font-mono uppercase tracking-widest mb-1">Disputed</div>
+            <p className="text-sm font-bold">Results did not match. Admins may review proof and reports.</p>
+          </div>
+        )}
 
         {/* Schedule, countdown & rules */}
         <div className="card-brutal-sm bg-white p-4">

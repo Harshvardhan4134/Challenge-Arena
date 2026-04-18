@@ -3,6 +3,13 @@ import { collections, type ChallengeDoc, type MatchResultDoc, type PlayerStatsDo
 
 const router = Router();
 
+function userIdFromReq(req: { params: Record<string, string | string[] | undefined> }): string | undefined {
+  const raw = req.params["userId"];
+  if (typeof raw === "string") return raw;
+  if (Array.isArray(raw) && typeof raw[0] === "string") return raw[0];
+  return undefined;
+}
+
 router.get("/stats/overview", async (_req, res) => {
   const challenges = (await collections.challenges.get()).docs.map((d) => d.data() as ChallengeDoc);
   const activeChallenges = challenges.filter(c => ["open", "full", "in_progress"].includes(c.status)).length;
@@ -20,7 +27,8 @@ router.get("/stats/overview", async (_req, res) => {
 });
 
 router.get("/users/:userId/stats", async (req, res) => {
-  const { userId } = req.params;
+  const userId = userIdFromReq(req);
+  if (!userId) return res.status(400).json({ error: "bad_request", message: "Missing user id" });
   const statsDoc = await collections.playerStats.doc(userId).get();
   const stats = statsDoc.exists ? (statsDoc.data() as PlayerStatsDoc) : null;
   if (!stats) return res.status(200).json({ userId, matchesPlayed: 0, wins: 0, losses: 0, winStreak: 0, weeklyWins: 0 });
@@ -28,7 +36,8 @@ router.get("/users/:userId/stats", async (req, res) => {
 });
 
 router.get("/users/:userId/history", async (req, res) => {
-  const { userId } = req.params;
+  const userId = userIdFromReq(req);
+  if (!userId) return res.status(400).json({ error: "bad_request", message: "Missing user id" });
 
   const memberships = (await collections.teamMembers.where("userId", "==", userId).get()).docs
     .map((d) => d.data() as TeamMemberDoc);
@@ -74,7 +83,7 @@ router.get("/users/:userId/history", async (req, res) => {
       mode: c.mode,
       outcome,
       opponent: opponentName,
-      playedAt: c.scheduledAt.toISOString(),
+      playedAt: typeof c.scheduledAt === "string" ? c.scheduledAt : new Date(c.scheduledAt).toISOString(),
     };
   }));
 
