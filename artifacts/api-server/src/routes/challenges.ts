@@ -19,13 +19,19 @@ import {
   type TeamMemberDoc,
   type UserDoc,
   type PlayerReportDoc,
+  type MatchResultProofDoc,
 } from "../lib/firestore-db";
 import { notifyUser } from "../lib/notify-user";
 import { uploadMatchResultProofImage } from "../lib/match-result-proof-storage";
+import { publicApiBaseUrl } from "../lib/public-api-url";
 
 const router = Router();
 
-const RESULT_PROOF_MAX_BYTES = 5 * 1024 * 1024;
+/** Firestore doc limit ~1 MiB; base64 expands ~4/3. GCS path allows larger when RESULT_PROOF_USE_FIREBASE_STORAGE=true. */
+const RESULT_PROOF_MAX_BYTES =
+  process.env["RESULT_PROOF_USE_FIREBASE_STORAGE"] === "true"
+    ? 5 * 1024 * 1024
+    : 512 * 1024;
 
 function challengeIdFromReq(req: { params: Record<string, string | string[] | undefined> }): string | undefined {
   const raw = req.params["challengeId"];
@@ -448,7 +454,10 @@ router.post("/:challengeId/leave", requireAuth, async (req: AuthRequest, res) =>
   return res.status(200).json({ success: true, message: "Left challenge" });
 });
 
-/** Host uploads match proof image to Firebase Storage; returns HTTPS URL for `screenshotUrl` on submit result. */
+/**
+ * Host uploads match proof image. Default: stored in Firestore (works on Spark / no Cloud Storage).
+ * Set RESULT_PROOF_USE_FIREBASE_STORAGE=true to use Firebase Storage instead (Blaze + bucket).
+ */
 router.post("/:challengeId/result-proof-upload", requireAuth, async (req: AuthRequest, res) => {
   const challengeId = challengeIdFromReq(req);
   if (!challengeId) return res.status(400).json({ error: "bad_request", message: "Missing challenge id" });
@@ -500,7 +509,22 @@ router.post("/:challengeId/result-proof-upload", requireAuth, async (req: AuthRe
   }
 
   try {
-    const url = await uploadMatchResultProofImage({ challengeId, buffer, contentType });
+    let url: string;
+    if (process.env["RESULT_PROOF_USE_FIREBASE_STORAGE"] === "true") {
+      url = await uploadMatchResultProofImage({ challengeId, buffer, contentType });
+    } else {
+      const proofId = crypto.randomUUID();
+      const proof: MatchResultProofDoc = {
+        id: proofId,
+        challengeId,
+        uploadedBy: userId,
+        contentType,
+        imageBase64: buffer.toString("base64"),
+        createdAt: nowIso(),
+      };
+      await collections.matchResultProofs.doc(proofId).set(proof);
+      url = `${publicApiBaseUrl(req)}/api/match-result-proofs/${proofId}`;
+    }
     return res.status(200).json({ url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Upload failed";

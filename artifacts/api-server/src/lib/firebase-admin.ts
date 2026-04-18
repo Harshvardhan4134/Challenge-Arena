@@ -33,7 +33,12 @@ function initFirebaseAdmin() {
 
   if (serviceAccount) {
     const explicit = process.env["FIREBASE_STORAGE_BUCKET"]?.trim();
-    const storageBucket = explicit ?? inferredDefaultBucket(serviceAccount.projectId);
+    const pid = serviceAccount.projectId ?? process.env["FIREBASE_PROJECT_ID"]?.trim();
+    if (!pid) {
+      initializeApp({ credential: cert(serviceAccount) });
+      return;
+    }
+    const storageBucket = explicit ?? inferredDefaultBucket(pid);
     initializeApp({ credential: cert(serviceAccount), storageBucket });
     return;
   }

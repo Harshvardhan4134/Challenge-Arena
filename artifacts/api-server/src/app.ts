@@ -6,6 +6,9 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+/** So req.protocol / X-Forwarded-* are correct behind Render, etc. */
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,

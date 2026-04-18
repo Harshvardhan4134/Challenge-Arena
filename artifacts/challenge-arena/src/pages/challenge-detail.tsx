@@ -15,8 +15,8 @@ import { formatChallengeRuleId } from "@/lib/challenge-rules";
 import { apiUrl } from "@/lib/api-url";
 import { getAuthToken } from "@/lib/auth";
 
-/** Max file size for match proof before upload to Firebase Storage (via API). */
-const RESULT_PROOF_MAX_FILE_BYTES = 5 * 1024 * 1024;
+/** Max file size for match proof (API stores in Firestore on Spark; limit ~512KB decoded). */
+const RESULT_PROOF_MAX_FILE_BYTES = 512 * 1024;
 
 const POST_MATCH_STATUSES = ["completed", "disputed", "cancelled"] as const;
 
@@ -289,7 +289,7 @@ export default function ChallengeDetail() {
       return;
     }
     if (file.size > RESULT_PROOF_MAX_FILE_BYTES) {
-      setError(`Image must be ${RESULT_PROOF_MAX_FILE_BYTES / (1024 * 1024)}MB or smaller.`);
+      setError(`Image must be ${Math.round(RESULT_PROOF_MAX_FILE_BYTES / 1024)}KB or smaller.`);
       e.target.value = "";
       return;
     }
@@ -672,8 +672,8 @@ export default function ChallengeDetail() {
             </div>
             <div className="space-y-2 mb-3">
               <div className="text-[10px] font-mono text-gray-500">
-                Screenshot is stored in Firebase Storage, then linked to your result. Required for win/loss; optional for
-                &quot;Match not taken&quot;. Max {RESULT_PROOF_MAX_FILE_BYTES / (1024 * 1024)}MB.
+                Screenshot is uploaded to the server and linked to your result. Required for win/loss; optional for
+                &quot;Match not taken&quot;. Max {Math.round(RESULT_PROOF_MAX_FILE_BYTES / 1024)}KB.
               </div>
               <input
                 ref={proofFileInputRef}

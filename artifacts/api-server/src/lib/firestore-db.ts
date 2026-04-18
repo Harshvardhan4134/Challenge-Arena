@@ -89,6 +89,17 @@ export type MatchResultDoc = {
   createdAt: string;
 };
 
+/** Match result screenshot bytes (Spark plan: no Firebase Storage). Served via GET /api/match-result-proofs/:id */
+export type MatchResultProofDoc = {
+  id: string;
+  challengeId: string;
+  uploadedBy: string;
+  contentType: string;
+  /** Raw image bytes as base64 (no data: prefix) */
+  imageBase64: string;
+  createdAt: string;
+};
+
 export type MessageDoc = {
   id: string;
   challengeId: string;
@@ -136,6 +147,7 @@ export const collections = {
   pushSubscriptions: firestore.collection("pushSubscriptions"),
   playerReports: firestore.collection("playerReports"),
   authTokens: firestore.collection("authTokens"),
+  matchResultProofs: firestore.collection("matchResultProofs"),
 };
 
 export function nowIso(): string {

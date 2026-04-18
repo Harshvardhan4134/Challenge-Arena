@@ -9,10 +9,12 @@ import leaderboardRouter from "./leaderboard";
 import statsRouter from "./stats";
 import freefireRouter from "./freefire";
 import adminRouter from "./admin";
+import matchResultProofsRouter from "./match-result-proofs";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(matchResultProofsRouter);
 router.use("/auth", authRouter);
 router.use("/users", usersRouter);
 router.use("/challenges", challengesRouter);
