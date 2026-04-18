@@ -5,6 +5,7 @@ import { setAuthToken } from "@/lib/auth";
 import { firebaseAuth, googleProvider, isFirebaseConfigured } from "@/lib/firebase";
 import { exchangeGoogleToken } from "@/lib/google-auth";
 import { fetchIgnForUid } from "@/lib/freefire-lookup";
+import { getPostAuthPath } from "@/lib/redirect-after-auth";
 import { signInWithPopup } from "firebase/auth";
 import { Swords, Eye, EyeOff, Mail, Lock, Gamepad2, Hash, Phone } from "lucide-react";
 
@@ -34,7 +35,7 @@ export default function Register() {
     mutation: {
       onSuccess: (data) => {
         setAuthToken(data.token);
-        navigate("/home");
+        navigate(getPostAuthPath());
       },
       onError: (err: any) => {
         setError(err?.data?.message || "Registration failed. Try a different username.");
@@ -143,7 +144,7 @@ export default function Register() {
       }
 
       setAuthToken(body.token);
-      navigate("/home");
+      navigate(getPostAuthPath());
     } catch {
       setError("Google sign up failed. Please try again.");
     } finally {
@@ -172,7 +173,7 @@ export default function Register() {
 
       setShowGoogleProfileModal(false);
       setAuthToken(body.token);
-      navigate("/home");
+      navigate(getPostAuthPath());
     } finally {
       setIsGooglePending(false);
     }
@@ -385,7 +386,7 @@ export default function Register() {
             <div className="mt-4 text-center text-sm text-black border-t-2 border-black pt-4">
               Already have an account?{" "}
               <button
-                onClick={() => navigate("/login")}
+                onClick={() => navigate(`/login${window.location.search}`)}
                 className="font-black text-[#FF6B00] underline hover:text-black transition-colors"
               >
                 LOG IN

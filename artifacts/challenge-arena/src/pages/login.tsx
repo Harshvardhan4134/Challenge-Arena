@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { setAuthToken } from "@/lib/auth";
 import { exchangeGoogleToken } from "@/lib/google-auth";
+import { getPostAuthPath } from "@/lib/redirect-after-auth";
 import { fetchIgnForUid } from "@/lib/freefire-lookup";
 import { Swords, Eye, EyeOff, Phone } from "lucide-react";
 
@@ -30,7 +31,7 @@ export default function Login() {
     mutation: {
       onSuccess: (data) => {
         setAuthToken(data.token);
-        navigate("/home");
+        navigate(getPostAuthPath());
       },
       onError: (err: any) => {
         setError(err?.data?.message || "Invalid credentials. Try again.");
@@ -102,7 +103,7 @@ export default function Login() {
       }
 
       setAuthToken(body.token);
-      navigate("/home");
+      navigate(getPostAuthPath());
     } catch {
       setError("Google login failed. Please try again.");
     } finally {
@@ -131,7 +132,7 @@ export default function Login() {
 
       setShowGoogleProfileModal(false);
       setAuthToken(body.token);
-      navigate("/home");
+      navigate(getPostAuthPath());
     } finally {
       setIsGooglePending(false);
     }
@@ -217,7 +218,11 @@ export default function Login() {
 
             <div className="mt-4 text-center text-sm border-t-2 border-black pt-4">
               No account?{" "}
-              <button onClick={() => navigate("/register")} className="font-black underline hover:text-[#FF6B00] transition-colors">
+              <button
+                type="button"
+                onClick={() => navigate(`/register${window.location.search}`)}
+                className="font-black underline hover:text-[#FF6B00] transition-colors"
+              >
                 REGISTER NOW
               </button>
             </div>

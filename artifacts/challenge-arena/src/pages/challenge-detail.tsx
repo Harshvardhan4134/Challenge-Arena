@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useLocation, useRoute } from "wouter";
+import { useState, useEffect, useRef } from "react";
+import { useLocation, useRoute, useSearch } from "wouter";
 import {
   useGetChallenge, useGetChallengeMessages, useSendMessage, useJoinChallenge,
   useLeaveChallenge, useSubmitResult, useShareRoomDetails, useGetMe,
@@ -7,7 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import Layout from "@/components/Layout";
-import { ArrowLeft, Send, Shield, Trophy, Key, Lock, MessageSquare, Users, Clock, Copy, Check } from "lucide-react";
+import { ArrowLeft, Send, Shield, Trophy, Key, Lock, MessageSquare, Users, Clock, Copy, Check, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatChallengeRuleId } from "@/lib/challenge-rules";
 import { apiUrl } from "@/lib/api-url";
@@ -33,6 +33,12 @@ function useCountdown(target: string) {
   return label;
 }
 
+function buildChallengeInviteUrl(challengeId: string, invite: "team" | "challenger"): string {
+  const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const path = `${base}/challenges/${challengeId}?invite=${invite}`;
+  return new URL(path, window.location.origin).href;
+}
+
 function CopyButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   const copy = () => {
@@ -52,7 +58,10 @@ export default function ChallengeDetail() {
   const [, navigate] = useLocation();
   const [, params] = useRoute("/challenges/:id");
   const challengeId = params?.id ?? "";
+  const search = useSearch();
   const qc = useQueryClient();
+  const teamAInviteRef = useRef<HTMLDivElement>(null);
+  const inviteHandledRef = useRef<string | null>(null);
 
   const me = useGetMe({ query: { queryKey: ["getMe"] } });
   const challenge = useGetChallenge(challengeId, {
@@ -84,6 +93,52 @@ export default function ChallengeDetail() {
   const shareRoom = useShareRoomDetails({ mutation: { onSuccess: invalidate, onError: (e: any) => setError(e?.data?.message || "Failed to share room") } });
   const sendMsg = useSendMessage({ mutation: { onSuccess: () => { setMsgText(""); invalidate(); } } });
 
+  useEffect(() => {
+    inviteHandledRef.current = null;
+  }, [challengeId]);
+
+  useEffect(() => {
+    if (!challengeId || !search || challenge.isLoading) return;
+    const ch = challenge.data;
+    if (!ch) return;
+
+    const pendingB = (ch as { pendingTeamB?: { leaderId: string; players: Array<{ userId: string }> } }).pendingTeamB;
+    const uid = me.data?.id;
+    const inA = ch.teamA?.players.some((p) => p.userId === uid) ?? false;
+    const inB = ch.teamB?.players.some((p) => p.userId === uid) ?? false;
+    const inPendingB = pendingB?.players?.some((p) => p.userId === uid) ?? false;
+    const inCh = inA || inB;
+    const started = Date.now() >= new Date(ch.scheduledAt).getTime();
+    const canJB = !inCh && !inPendingB && !pendingB && ch.status === "open" && !started;
+
+    const params = new URLSearchParams(search);
+    const invite = params.get("invite");
+    if (!invite) return;
+    const key = `${ch.id}:${invite}`;
+    if (inviteHandledRef.current === key) return;
+
+    if (invite === "team" && (ch.mode === "2v2" || ch.mode === "4v4")) {
+      inviteHandledRef.current = key;
+      requestAnimationFrame(() => {
+        teamAInviteRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+      return;
+    }
+    if (invite === "challenger") {
+      if (inviteHandledRef.current === key) return;
+      if (!canJB) {
+        inviteHandledRef.current = key;
+        return;
+      }
+      inviteHandledRef.current = key;
+      if (ch.teamB) {
+        joinChallenge.mutate({ challengeId, data: { side: "teamB" } });
+      } else {
+        setShowJoinBForm(true);
+      }
+    }
+  }, [challengeId, search, challenge.data, challenge.isLoading, me.data?.id, joinChallenge]);
+
   const countdown = useCountdown(challenge.data?.scheduledAt ?? new Date().toISOString());
 
   if (!challengeId) return null;
@@ -107,6 +162,20 @@ export default function ChallengeDetail() {
 
   const canJoinA = !inChallenge && !inPendingTeamB && !pendingTeamB && (c.teamA?.players.length ?? 0) < (c.teamA?.maxSize ?? 1) && c.status === "open" && !hasMatchStarted;
   const canJoinB = !inChallenge && !inPendingTeamB && !pendingTeamB && c.status === "open" && !hasMatchStarted;
+
+  const slotsOnA = (c.teamA?.maxSize ?? 1) - (c.teamA?.players.length ?? 0);
+  const showHostTeammateLink =
+    isTeamALeader && !hasMatchStarted && (c.mode === "2v2" || c.mode === "4v4") && slotsOnA > 0 && c.status === "open";
+  const showHostOpponentLink =
+    isTeamALeader && !hasMatchStarted && c.mode === "1v1" && !c.teamB && !pendingTeamB && c.status === "open";
+  const slotsOnB = c.teamB ? c.teamB.maxSize - c.teamB.players.length : 0;
+  const showChallengerSquadLink =
+    isTeamBLeader &&
+    !hasMatchStarted &&
+    (c.mode === "2v2" || c.mode === "4v4") &&
+    !!c.teamB &&
+    slotsOnB > 0 &&
+    c.status === "open";
 
   // Chat only shows when both teams are present
   const bothTeamsJoined = !!c.teamA && !!c.teamB && c.teamB.players.length > 0;
@@ -186,10 +255,52 @@ export default function ChallengeDetail() {
           )}
         </div>
 
+        {(showHostTeammateLink || showHostOpponentLink || showChallengerSquadLink) && (
+          <div className="card-brutal bg-white p-4 border-[#00854B]">
+            <div className="flex items-center gap-2 mb-3">
+              <Link2 className="w-4 h-4 text-[#00854B]" />
+              <span className="text-[10px] font-black font-mono text-black uppercase tracking-widest">Invite links</span>
+            </div>
+            <p className="text-[9px] font-mono text-gray-600 mb-3 leading-snug">
+              Share a link so players open this match logged in (or log in and return here). 2v2/4v4 host: fill your squad.
+              1v1 host: opponent joins as challenger.
+            </p>
+            <div className="space-y-2">
+              {showHostTeammateLink && (
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center border-2 border-black p-2 bg-[#FFE600]/15">
+                  <span className="text-[9px] font-black text-black shrink-0 sm:max-w-[140px]">Teammates (your roster, Team A)</span>
+                  <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+                    <span className="text-[8px] font-mono truncate text-gray-600">{buildChallengeInviteUrl(challengeId, "team")}</span>
+                    <CopyButton value={buildChallengeInviteUrl(challengeId, "team")} />
+                  </div>
+                </div>
+              )}
+              {showHostOpponentLink && (
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center border-2 border-black p-2 bg-[#FFE600]/15">
+                  <span className="text-[9px] font-black text-black shrink-0 sm:max-w-[140px]">Opponent (challenges you, Team B)</span>
+                  <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+                    <span className="text-[8px] font-mono truncate text-gray-600">{buildChallengeInviteUrl(challengeId, "challenger")}</span>
+                    <CopyButton value={buildChallengeInviteUrl(challengeId, "challenger")} />
+                  </div>
+                </div>
+              )}
+              {showChallengerSquadLink && (
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-center border-2 border-black p-2 bg-[#FF6B00]/10">
+                  <span className="text-[9px] font-black text-black shrink-0 sm:max-w-[140px]">Challenger squad (your roster, Team B)</span>
+                  <div className="flex items-center gap-1 min-w-0 flex-1 justify-end">
+                    <span className="text-[8px] font-mono truncate text-gray-600">{buildChallengeInviteUrl(challengeId, "challenger")}</span>
+                    <CopyButton value={buildChallengeInviteUrl(challengeId, "challenger")} />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Teams */}
         <div className="grid grid-cols-2 gap-3">
           {/* Team A */}
-          <div className={`card-brutal overflow-hidden ${isTeamALeader ? "border-[#FF6B00]" : ""}`}>
+          <div ref={teamAInviteRef} className={`card-brutal overflow-hidden ${isTeamALeader ? "border-[#FF6B00]" : ""}`}>
             <div className="bg-black px-3 py-2">
               <div className="text-[10px] font-black font-mono text-[#FFE600]">TEAM A</div>
             </div>

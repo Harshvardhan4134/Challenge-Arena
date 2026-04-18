@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,6 +39,7 @@ const queryClient = new QueryClient({
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const me = useGetMe({ query: { queryKey: ["getMe"], retry: false } });
+  const [pathname] = useLocation();
 
   if (me.isLoading) {
     return (
@@ -49,7 +50,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (me.error || !me.data) {
-    return <Redirect to="/login" />;
+    const returnTo =
+      typeof window !== "undefined"
+        ? `${pathname}${window.location.search || ""}`
+        : pathname;
+    const qs = returnTo && returnTo !== "/login" ? `?redirect=${encodeURIComponent(returnTo)}` : "";
+    return <Redirect to={`/login${qs}`} />;
   }
 
   return <>{children}</>;
