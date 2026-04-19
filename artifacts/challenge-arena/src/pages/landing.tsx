@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { useLocation } from "wouter";
 import { useGetStatsOverview } from "@workspace/api-client-react";
 import { Swords, Zap, Users, Trophy } from "lucide-react";
+import { TournamentBanner } from "@/components/TournamentBanner";
 
 export default function Landing() {
   const [, navigate] = useLocation();
@@ -32,6 +33,10 @@ export default function Landing() {
           </div>
         </div>
       </nav>
+
+      <div className="max-w-4xl mx-auto px-4 pt-4 pb-2">
+        <TournamentBanner />
+      </div>
 
       {/* Hero */}
       <section className="py-16 px-4 border-b-4 border-black">

@@ -29,10 +29,96 @@ function deepLink(challengeId: string | null): string {
   return challengeId ? `${base}/challenges/${challengeId}` : base;
 }
 
-function whatsappToAddress(input: string): string | null {
+/** E.164 digits only (no +). Twilio WhatsApp expects whatsapp:+<digits>. */
+function digitsForWhatsApp(input: string): string | null {
   const digits = input.replace(/\D/g, "");
   if (digits.length < 10 || digits.length > 15) return null;
+  return digits;
+}
+
+/** Recipient / From address for Twilio Messages API (whatsapp:+E164). */
+function whatsappToAddress(input: string): string | null {
+  const digits = digitsForWhatsApp(input);
+  if (!digits) return null;
   return `whatsapp:+${digits}`;
+}
+
+/**
+ * Normalize TWILIO_WHATSAPP_FROM: accept "whatsapp:+1...", "+1...", or "1...".
+ */
+function normalizeTwilioFrom(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+  if (s.toLowerCase().startsWith("whatsapp:")) {
+    const rest = s.slice("whatsapp:".length).trim();
+    const d = digitsForWhatsApp(rest.startsWith("+") ? rest : `+${rest}`);
+    return d ? `whatsapp:+${d}` : null;
+  }
+  const d = digitsForWhatsApp(s);
+  return d ? `whatsapp:+${d}` : null;
+}
+
+export function twilioWhatsAppConfigured(): boolean {
+  const sid = process.env["TWILIO_ACCOUNT_SID"]?.trim();
+  const token = process.env["TWILIO_AUTH_TOKEN"]?.trim();
+  const messagingServiceSid = process.env["TWILIO_MESSAGING_SERVICE_SID"]?.trim();
+  const fromRaw = process.env["TWILIO_WHATSAPP_FROM"]?.trim();
+  const fromNorm = fromRaw ? normalizeTwilioFrom(fromRaw) : null;
+  return Boolean(sid && token && (messagingServiceSid || fromNorm));
+}
+
+function twilioSendErrorHint(err: unknown): string | undefined {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg.includes("63016") || msg.includes("63007") || msg.toLowerCase().includes("not opted in")) {
+    return "Sandbox: recipient must join your Twilio sandbox from WhatsApp (send the join code to the sandbox number).";
+  }
+  if (msg.includes("21608") || msg.includes("21211") || msg.toLowerCase().includes("from")) {
+    return "Check TWILIO_WHATSAPP_FROM (sandbox: whatsapp:+14155238886).";
+  }
+  if (msg.includes("63049") || msg.toLowerCase().includes("template")) {
+    return "Meta may require an approved WhatsApp template outside the 24h customer-care window.";
+  }
+  return undefined;
+}
+
+/** Safe status for admin UI / debugging (no secrets). */
+export function getTwilioWhatsAppDiagnostics(): {
+  twilioWhatsAppConfigured: boolean;
+  hasTwilioAccountSid: boolean;
+  hasTwilioAuthToken: boolean;
+  hasTwilioWhatsAppFrom: boolean;
+  hasTwilioMessagingServiceSid: boolean;
+  twilioFromNumberSuffix: string | null;
+  appOriginUsedInLinks: string;
+  checklist: string[];
+} {
+  const hasSid = Boolean(process.env["TWILIO_ACCOUNT_SID"]?.trim());
+  const hasToken = Boolean(process.env["TWILIO_AUTH_TOKEN"]?.trim());
+  const fromRaw = process.env["TWILIO_WHATSAPP_FROM"]?.trim();
+  const fromNorm = fromRaw ? normalizeTwilioFrom(fromRaw) : null;
+  const hasMs = Boolean(process.env["TWILIO_MESSAGING_SERVICE_SID"]?.trim());
+  const configured = Boolean(hasSid && hasToken && (hasMs || fromNorm));
+  const suffix = fromNorm ? fromNorm.replace(/\D/g, "").slice(-4) : null;
+
+  const checklist: string[] = [
+    "Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_WHATSAPP_FROM on the API server (e.g. Render) — not on the Vercel frontend.",
+    "Sandbox From is usually whatsapp:+14155238886. Each recipient must text the join code to that number first.",
+    "Every player needs a WhatsApp number on Profile (country code + national number, e.g. 91…).",
+  ];
+  if (!configured) {
+    checklist.unshift("Twilio WhatsApp is not fully configured; outbound WA will be skipped.");
+  }
+
+  return {
+    twilioWhatsAppConfigured: configured,
+    hasTwilioAccountSid: hasSid,
+    hasTwilioAuthToken: hasToken,
+    hasTwilioWhatsAppFrom: Boolean(fromRaw),
+    hasTwilioMessagingServiceSid: hasMs,
+    twilioFromNumberSuffix: suffix,
+    appOriginUsedInLinks: appOrigin(),
+    checklist,
+  };
 }
 
 async function sendResendEmail(to: string, subject: string, html: string): Promise<void> {
@@ -57,15 +143,41 @@ function formatWhatsAppBotMessage(title: string, message: string, link: string):
   return `*Challenge Arena*\n_${t}_\n\n${m}\n\n${link}`;
 }
 
+let loggedTwilioMissingConfig = false;
+
 async function sendTwilioWhatsApp(to: string, body: string): Promise<void> {
-  const sid = process.env.TWILIO_ACCOUNT_SID?.trim();
-  const token = process.env.TWILIO_AUTH_TOKEN?.trim();
-  const from = process.env.TWILIO_WHATSAPP_FROM?.trim();
-  if (!sid || !token || !from) return;
+  const sid = process.env["TWILIO_ACCOUNT_SID"]?.trim();
+  const token = process.env["TWILIO_AUTH_TOKEN"]?.trim();
+  const messagingServiceSid = process.env["TWILIO_MESSAGING_SERVICE_SID"]?.trim();
+  const fromRaw = process.env["TWILIO_WHATSAPP_FROM"]?.trim();
+  const fromNorm = fromRaw ? normalizeTwilioFrom(fromRaw) : null;
+
+  if (!sid || !token || (!messagingServiceSid && !fromNorm)) {
+    if (!loggedTwilioMissingConfig) {
+      loggedTwilioMissingConfig = true;
+      logger.warn(
+        "Twilio WhatsApp skipped: set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and either TWILIO_WHATSAPP_FROM (whatsapp:+… or +…) or TWILIO_MESSAGING_SERVICE_SID",
+      );
+    }
+    return;
+  }
+
   const toAddr = whatsappToAddress(to);
-  if (!toAddr) return;
+  if (!toAddr) {
+    logger.warn({ toLen: to?.length ?? 0 }, "Twilio WhatsApp skipped: recipient number has invalid length or format (use country code,10–15 digits)");
+    return;
+  }
+
   const auth = Buffer.from(`${sid}:${token}`).toString("base64");
-  const params = new URLSearchParams({ From: from, To: toAddr, Body: body });
+  const params = new URLSearchParams();
+  params.set("To", toAddr);
+  params.set("Body", body);
+  if (messagingServiceSid) {
+    params.set("MessagingServiceSid", messagingServiceSid);
+  } else if (fromNorm) {
+    params.set("From", fromNorm);
+  }
+
   const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",
     headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/x-www-form-urlencoded" },
@@ -181,10 +293,7 @@ export async function broadcastNewChallengeLobbyWhatsApp(params: {
   creatorUserId: string;
 }): Promise<void> {
   if (process.env["WHATSAPP_LOBBY_BROADCAST"] === "false") return;
-  const sid = process.env["TWILIO_ACCOUNT_SID"]?.trim();
-  const token = process.env["TWILIO_AUTH_TOKEN"]?.trim();
-  const from = process.env["TWILIO_WHATSAPP_FROM"]?.trim();
-  if (!sid || !token || !from) return;
+  if (!twilioWhatsAppConfigured()) return;
 
   const maxCap = 500;
   const max = Math.min(
@@ -213,7 +322,12 @@ export async function broadcastNewChallengeLobbyWhatsApp(params: {
   const chunk = 10;
   for (let i = 0; i < uniquePhones.length; i += chunk) {
     const part = uniquePhones.slice(i, i + chunk);
-    await Promise.allSettled(part.map((phone) => sendTwilioWhatsApp(phone, waBody)));
+    const settled = await Promise.allSettled(part.map((phone) => sendTwilioWhatsApp(phone, waBody)));
+    for (const r of settled) {
+      if (r.status === "rejected") {
+        logger.warn({ err: r.reason }, "lobby WhatsApp broadcast message failed");
+      }
+    }
   }
 }
 
@@ -254,6 +368,13 @@ export async function notifyUser(
   const email = user.email?.trim();
   const waRaw = (user.whatsappPhone ?? "").trim();
 
+  if (twilioWhatsAppConfigured() && !waRaw) {
+    logger.warn(
+      { userId, notificationType: payload.type },
+      "WhatsApp skipped: user has no whatsappPhone on profile (in-app notification was still created)",
+    );
+  }
+
   await Promise.allSettled([
     email
       ? sendResendEmail(email, payload.title, `<p><strong>${payload.title}</strong></p><p>${payload.message}</p><p><a href="${link}">Open match</a></p>`).catch((e) =>
@@ -265,7 +386,10 @@ export async function notifyUser(
           waRaw,
           formatWhatsAppBotMessage(payload.title, payload.message, link),
         ).catch((e) =>
-          logger.warn({ err: e, userId }, "notify whatsapp failed"),
+          logger.warn(
+            { err: e, userId, notificationType: payload.type, hint: twilioSendErrorHint(e) },
+            "notify whatsapp failed",
+          ),
         )
       : Promise.resolve(),
     sendWebPushToUser(userId, payload.title, payload.message, link).catch((e) =>

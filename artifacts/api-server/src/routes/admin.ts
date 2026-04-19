@@ -15,6 +15,7 @@ import {
   type UserDoc,
 } from "../lib/firestore-db";
 import { isAdminUser, toSafeUser } from "../lib/user-view";
+import { getTwilioWhatsAppDiagnostics } from "../lib/notify-user";
 import { buildChallengeResponse } from "./challenges";
 
 const router = Router();
@@ -67,6 +68,21 @@ function parseBanBody(req: AuthRequest): { until: string } | { error: string } {
   }
   return { error: "Provide bannedUntil (ISO) or hoursFromNow (number)" };
 }
+
+/** Twilio / WhatsApp readiness (no secrets). Use to debug “no WhatsApp received”. */
+router.get("/integrations", async (_req, res) => {
+  const usersSnap = await collections.users.get();
+  let usersWithWhatsAppOnProfile = 0;
+  for (const d of usersSnap.docs) {
+    const u = d.data() as UserDoc;
+    if ((u.whatsappPhone ?? "").trim()) usersWithWhatsAppOnProfile++;
+  }
+  return res.status(200).json({
+    ...getTwilioWhatsAppDiagnostics(),
+    usersTotal: usersSnap.size,
+    usersWithWhatsAppOnProfile,
+  });
+});
 
 router.get("/overview", async (_req, res) => {
   const usersSnap = await collections.users.get();

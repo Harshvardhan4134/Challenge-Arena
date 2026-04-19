@@ -4,6 +4,7 @@ import { Home, Swords, Trophy, Bell, User, Shield } from "lucide-react";
 import { useGetMe, useListNotifications, getGetMeQueryKey, getListNotificationsQueryKey } from "@workspace/api-client-react";
 import { cn } from "@/lib/utils";
 import { registerWebPushForUser } from "@/lib/push-notifications";
+import { TournamentBanner } from "@/components/TournamentBanner";
 
 const navItems = [
   { path: "/home", icon: Home, label: "HOME" },
@@ -52,6 +53,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <main className="flex-1 pt-[calc(3rem+env(safe-area-inset-top))] pb-[calc(4.5rem+env(safe-area-inset-bottom))] max-w-2xl mx-auto w-full px-3 sm:px-4">
+        <TournamentBanner className="mb-4 mt-1" />
         {children}
       </main>
 
